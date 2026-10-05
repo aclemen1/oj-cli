@@ -60,3 +60,17 @@ func TestCreateRef(t *testing.T) {
 		t.Fatalf("named scheme: %+v", c)
 	}
 }
+
+func TestShowRefError(t *testing.T) {
+	s := withRDIR(t)
+	s.Refs = map[string]config.RefSource{
+		"quiet": {Show: []string{"sh", "-c", "echo 'no dossier U-0044'; exit 3"}},
+		"loud":  {Show: []string{"sh", "-c", "echo gone >&2; exit 1"}},
+	}
+	if r := s.ShowRef("quiet:U-0044"); !strings.Contains(r.Error, "no dossier U-0044") {
+		t.Fatalf("stdout as reason: %q", r.Error)
+	}
+	if r := s.ShowRef("loud:x"); !strings.Contains(r.Error, "gone") {
+		t.Fatalf("stderr as reason: %q", r.Error)
+	}
+}

@@ -256,3 +256,19 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 		t.Fatalf("show done: %+v", m.actions)
 	}
 }
+
+func TestMarkdownKeepsLineBreaks(t *testing.T) {
+	var trimmed []string
+	for _, l := range markdown("Première ligne.\nDeuxième ligne.\n\n- un\n- deux\n\n```\ncode a\ncode b\n```", 80) {
+		trimmed = append(trimmed, strings.TrimRight(ansi.Strip(l), " "))
+	}
+	got := strings.Join(trimmed, "\n")
+	for _, want := range []string{"Première ligne.\n", "Deuxième ligne.", "code a", "code b"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("lacks %q:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, "Première ligne. Deuxième") {
+		t.Fatalf("lines joined:\n%s", got)
+	}
+}

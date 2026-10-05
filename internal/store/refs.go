@@ -46,7 +46,11 @@ func (s *Store) ShowRef(ref string) RefShown {
 	cmd.Stderr = &stderr
 	b, err := cmd.Output()
 	if err != nil {
-		out.Error = strings.TrimSpace(fmt.Sprintf("%v: %s", err, stderr.String()))
+		why := strings.TrimSpace(stderr.String())
+		if why == "" {
+			why = strings.TrimSpace(string(b))
+		}
+		out.Error = strings.TrimSpace(fmt.Sprintf("%s failed (%v): %s", args[0], err, why))
 		return out
 	}
 	if len(b) > 64<<10 {

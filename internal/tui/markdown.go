@@ -37,7 +37,8 @@ func markdown(md string, w int) []string {
 		h.Prefix = ""
 	}
 	var out []string
-	if r, err := glamour.NewTermRenderer(glamour.WithStyles(cfg), glamour.WithWordWrap(w)); err == nil {
+	// Line breaks of the text are kept: notes and dossiers are written line by line.
+	if r, err := glamour.NewTermRenderer(glamour.WithStyles(cfg), glamour.WithWordWrap(w), glamour.WithPreservedNewLines()); err == nil {
 		if s, err := r.Render(md); err == nil {
 			out = strings.Split(strings.Trim(s, "\n"), "\n")
 		}
