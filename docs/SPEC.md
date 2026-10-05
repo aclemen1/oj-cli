@@ -367,9 +367,9 @@ ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 | View | Shows | Actions |
 |---|---|---|
 | Meetings | alias, next sitting, items on the agenda and proposed | open (`enter`), actions (`A`) |
-| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
+| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart; under the list, a pane with the selected item (owner, deferrals, question, attachments, refs, notes, outcome) | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
 | Item | fields, notes, history with outcomes and actions, log | `e` edit in `$EDITOR` (then committed) |
-| Sitting (live) | the current item, a timer per item, elapsed against plan | `space` timer, `n`/`p` item, `s` summary, `D` decision, `t` action, `-` defer, `h` hold |
+| Sitting (live) | the current item, a timer per item, elapsed against plan, the same pane for the current item | `space` timer, `n`/`p` item, `s` summary, `D` decision, `t` action, `-` defer, `h` hold |
 | Actions | actions by due date, overdue in red | `space` done or open, `o` show done |
 
 ## 12. Configuration

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
 
 	"github.com/aclemen1/ordo-cli/internal/store"
 )
@@ -142,7 +143,75 @@ func (m *model) renderAgenda() []string {
 	if len(m.agenda.Items) == 0 {
 		rows = append([]string{sMuted.Render("  (no item on the agenda — n adds one)")}, rows...)
 	}
-	return append(out, window(rows, m.sel+2, m.h-2-len(out))...)
+	var pane []string
+	if r := m.current(); r != nil {
+		pane = m.pane(r.item, r.outcome)
+	}
+	listH := max(3, m.h-2-len(out)-len(pane))
+	rows = window(rows, m.sel+2, listH)
+	if len(pane) > 0 {
+		rows = append(rows, "")
+	}
+	return append(append(out, rows...), pane...)
+}
+
+// pane shows the content of one item under the list: owner, deferrals,
+// question, attachments, refs, notes and its outcome in this sitting.
+func (m *model) pane(it *store.Item, o *store.Outcome) []string {
+	w := max(20, m.w-2)
+	maxLines := min(14, max(4, (m.h-2)/2))
+	head := fmt.Sprintf("── %s · %s ", it.ID, it.Title)
+	lines := []string{sTitle.Render(pad(head+strings.Repeat("─", max(0, w-ansi.StringWidth(head))), w))}
+	field := func(label, v string) {
+		if v == "" {
+			return
+		}
+		for i, l := range strings.Split(ansi.Wordwrap(v, max(10, w-11), ""), "\n") {
+			key := ""
+			if i == 0 {
+				key = label
+			}
+			lines = append(lines, fmt.Sprintf("%s %s", sMuted.Render(fmt.Sprintf("%-9s", key)), l))
+		}
+	}
+	who := strings.Join(nonEmpty(it.Owner, it.Kind, it.Duration), " · ")
+	var deferred []string
+	for _, e := range it.History {
+		if e.Result == "deferred" {
+			deferred = append(deferred, e.Sitting)
+		}
+	}
+	if len(deferred) > 0 {
+		who += fmt.Sprintf(" · deferred %d× (%s)", len(deferred), strings.Join(deferred, ", "))
+	}
+	field("Owner", who)
+	field("Question", it.Expected)
+	field("Attached", strings.Join(it.Attachments, ", "))
+	field("Refs", strings.Join(it.Refs, ", "))
+	field("Notes", it.Notes)
+	if o != nil {
+		field("Summary", o.Summary)
+		field("Decision", o.Decision)
+		for _, a := range o.Actions {
+			field("Action", strings.Join(nonEmpty(a.What, a.Who, a.Due), " · "))
+		}
+		field("Outcome", fmt.Sprintf("%s by %s, next %s", o.Status, o.By, o.Next))
+	}
+	field("Reason", it.Reason)
+	if len(lines) > maxLines {
+		lines = append(lines[:maxLines-1], sMuted.Render("          … enter shows the whole item"))
+	}
+	return lines
+}
+
+func nonEmpty(l ...string) []string {
+	var out []string
+	for _, s := range l {
+		if s != "" {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 func (m *model) renderItem() []string {
@@ -243,7 +312,12 @@ func (m *model) renderLive() []string {
 	if m.live.running {
 		state = sOK.Render("timer running")
 	}
-	return append(out, "", fmt.Sprintf("  elapsed %s of %s  %s", sBold.Render(clock(total)), clock(planned), state))
+	out = append(out, "", fmt.Sprintf("  elapsed %s of %s  %s", sBold.Render(clock(total)), clock(planned), state), "")
+	if m.live.cur < len(m.agenda.Items) {
+		ai := m.agenda.Items[m.live.cur]
+		out = append(out, m.pane(ai.Item, ai.Outcome)...)
+	}
+	return out
 }
 
 func (m *model) renderActions() []string {

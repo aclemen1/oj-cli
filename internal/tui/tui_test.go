@@ -152,6 +152,28 @@ func TestMeetingsAndAgenda(t *testing.T) {
 	}
 }
 
+func TestItemPane(t *testing.T) {
+	m, st, _ := setup(t)
+	st.EditItem("RDIR-1", store.ItemInput{Expected: "Approuver le projet de budget ?", Notes: "Le rectorat attend la version finale.",
+		Attach: []string{"artefact://pro/01JB"}, Refs: []string{"office:U-0042"}})
+	press(t, m, "enter")
+	s := screen(m)
+	for _, want := range []string{"── RDIR-1 · Budget 2027", "Owner     Marie · decision · 20m", "Question  Approuver le projet de budget ?",
+		"Attached  artefact://pro/01JB", "Refs      office:U-0042", "Notes     Le rectorat attend la version finale."} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("pane lacks %q:\n%s", want, s)
+		}
+	}
+	press(t, m, "j")
+	if s := screen(m); !strings.Contains(s, "── RDIR-2 · Point RH") || strings.Contains(s, "Approuver le projet") {
+		t.Fatalf("pane follows the selection:\n%s", s)
+	}
+	press(t, m, "l")
+	if s := screen(m); !strings.Contains(s, "── RDIR-1 · Budget 2027") {
+		t.Fatalf("live pane:\n%s", s)
+	}
+}
+
 func TestLiveSittingAndMinutes(t *testing.T) {
 	m, st, now := setup(t)
 	press(t, m, "enter")
