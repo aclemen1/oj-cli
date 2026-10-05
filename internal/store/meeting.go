@@ -24,6 +24,7 @@ type Meeting struct {
 	ItemDuration string     `yaml:"item_duration,omitempty" json:"item_duration,omitempty"`
 	ItemKind     string     `yaml:"item_kind,omitempty" json:"item_kind,omitempty"`
 	Lang         string     `yaml:"lang,omitempty" json:"lang,omitempty"`
+	Calendar     *CalLink   `yaml:"calendar,omitempty" json:"calendar,omitempty"`
 	Counter      int        `yaml:"counter" json:"-"`
 	Log          []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
 	Notes        string     `yaml:"-" json:"notes,omitempty"`

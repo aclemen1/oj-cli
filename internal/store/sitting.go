@@ -23,6 +23,7 @@ type Sitting struct {
 	Present  []string   `yaml:"present,omitempty" json:"present,omitempty"`
 	Excused  []string   `yaml:"excused,omitempty" json:"excused,omitempty"`
 	Reason   string     `yaml:"reason,omitempty" json:"reason,omitempty"`
+	Event    string     `yaml:"event,omitempty" json:"event,omitempty"`
 	Log      []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
 	Notes    string     `yaml:"-" json:"notes,omitempty"`
 	// Virtual: a date of the recurrence with nothing written yet.

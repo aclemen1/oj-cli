@@ -113,7 +113,9 @@ func (s *Store) writeAs(fn func() (string, error)) error {
 	if err != nil {
 		return err
 	}
-	s.commit(msg)
+	if msg != "" {
+		s.commit(msg)
+	}
 	return nil
 }
 

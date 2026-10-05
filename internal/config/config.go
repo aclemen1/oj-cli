@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/aclemen1/ordo-cli/internal/calendar"
 )
 
 type Sphere struct {
@@ -33,8 +35,9 @@ type Render struct {
 }
 
 type Config struct {
-	Spheres map[string]Sphere `yaml:"spheres"`
-	Render  Render            `yaml:"render,omitempty"`
+	Spheres   map[string]Sphere          `yaml:"spheres"`
+	Render    Render                     `yaml:"render,omitempty"`
+	Calendars map[string]calendar.Source `yaml:"calendars,omitempty"`
 
 	path string
 }

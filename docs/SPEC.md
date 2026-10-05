@@ -253,21 +253,29 @@ meets: a sitting moved in the calendar is moved in `ordo`.
 
 - A meeting's `calendar` names a provider and a match rule (event title
   pattern, or the event's recurring id).
-- Providers: `ics` (file or URL) and `command` (any command that prints
-  events as JSON: `[{uid, start, end, title, location, status}]`). The
-  command lets a user plug a CLI such as `gws` without `ordo` knowing it.
-- At each action that looks at upcoming sittings, and at `ordo sync`, `ordo`
-  reads the calendar over the look-ahead window and reconciles:
+- Sources are named under `calendars:` in the configuration: `ics` (`path`
+  or `url`; recurring events expanded, EXDATE and RECURRENCE-ID applied) and
+  `command` (`run: [program, args…]`, called with `ORDO_FROM` and `ORDO_TO`
+  in RFC 3339, printing `[{uid, start, end, title, location, status,
+  recurring_id, original_start}]`). The command lets a user plug a CLI such
+  as `gws` without `ordo` knowing it.
+- `ordo meeting calendar <alias> --source <name> --match <regex>
+  [--recurring-id <id>]` links a meeting to its events.
+- `ordo sitting sync [<alias>] [--days 90]` reads the events and reconciles.
+  It is explicit, not run at every read: a routine runs it on a schedule.
+  An event finds its sitting by the uid recorded on it, then by its
+  `original_start`, then by its start date.
 
 | Calendar | `ordo` |
 |---|---|
-| event matches an RRULE date | sitting keeps its id, takes the event's time and place |
-| event moved to another day | `sitting move`; the id keeps the original date, the sitting records the actual date |
-| event cancelled | `sitting cancel` with reason `calendar` |
-| event with no RRULE date | one-off sitting added |
-| RRULE date with no event | sitting kept, flagged `unconfirmed` |
+| event on an RRULE date | sitting keeps its id; takes the event's time and place when they differ |
+| event moved to another day | the sitting moves; its id keeps the original date |
+| event cancelled | sitting cancelled with reason `calendar`, its items moved on; it comes back if the event does |
+| event with no RRULE date | one-off sitting added, carrying the event uid |
+| RRULE date with no event | sitting kept, reported as `unconfirmed` in the result |
 
 - A sitting already `held` or `minuted` is never changed by the calendar.
+- A sync that changes nothing writes and commits nothing.
 - Without a calendar, the RRULE alone decides.
 
 ## 7. Hooks
@@ -296,17 +304,21 @@ hooks:
 
 ## 8. Rendering
 
-- `render` produces the agenda or the minutes from a sitting and its items,
-  with a Go template per document. Built-in templates are in English; a
-  meeting or a sphere can name its own templates (French, an institution's
-  layout).
+- `render <sitting> --doc agenda|minutes --to md|html|docx|pdf [--out]`
+  produces a document from a sitting and its items, with a Go template per
+  document. Built-in templates exist in English and French (`lang` of the
+  meeting, then of the sphere, then `en`); a sphere can name its own
+  templates (`render.templates.agenda`, `.minutes`).
 - `md` and `html` are rendered by `ordo` itself. `docx` and `pdf` go through
-  pandoc when it is in the PATH (`--reference-doc` from the configuration);
-  `ordo doctor` reports it when missing.
-- Each render is written under `rendered/` with a version suffix for the
-  agenda (`-v1`, `-v2` after a reopen) and is never overwritten.
-- `freeze` and `minute` render the Markdown version automatically and pass
-  its path to the hooks.
+  pandoc (`render.reference_doc` of the sphere for docx, `pdf_engine` for
+  PDF, default xelatex).
+- `freeze` writes `rendered/<date>-agenda-vN.md` (`v2` after a reopen) and
+  `minute` writes `rendered/<date>-minutes.md`, in the same commit; they are
+  never overwritten, and their paths go to the hooks.
+- `render` of a frozen agenda or approved minutes starts from that final
+  Markdown, and a docx or PDF made from it is committed next to it.
+  Anything else is a draft, marked as such, written to `--out` or to a
+  temporary directory outside the store.
 
 ## 9. Spheres and access
 
@@ -354,16 +366,25 @@ ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 ```yaml
 spheres:
   perso: { root: ~/ordo/perso, vcs: jj }
-  pro:   { root: ~/ordo/pro, vcs: jj }
+  pro:
+    root: ~/ordo/pro
+    vcs: jj
+    render:
+      lang: fr
+      reference_doc: ~/templates/house-style.docx
+    hooks:
+      - on: [outcome.set, item.deferred]
+        run: ["office-notify-from-ordo"]
 calendars:
   work:
     type: command
     run: ["gws-events", "--profile", "work"]
 render:
   pandoc: pandoc
-  reference_doc: { pro: ~/templates/house-style.docx }
-hooks: []
+  pdf_engine: xelatex
 ```
+
+Hooks belong to a sphere, so a hook of one sphere never sees another.
 
 A meeting's own settings live in its `meeting.md`.
 
@@ -373,8 +394,11 @@ A meeting's own settings live in its `meeting.md`.
    outcomes, `schema`, `skill`, CLI. Tests on a throwaway store.
    (Written 5 October 2026; `actions ls` comes with the TUI.)
 2. **Render**: Markdown and HTML agenda and minutes, templates, pandoc.
+   (Written 5 October 2026: built-in templates in English and French,
+   `lang` per meeting or sphere.)
 3. **MCP**: `ordo mcp`, resources. (Written 5 October 2026.)
 4. **Calendars**: `ics` and `command` providers, reconciliation, `sync`.
+   (Written 5 October 2026.)
 5. **Hooks**.
 6. **TUI**, live sitting view included. (Written 5 October 2026, with
    `actions ls` and `actions done`; the timer lives in the TUI's memory only.)
