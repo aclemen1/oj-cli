@@ -110,12 +110,16 @@ func registerItems() {
 	})
 	spec.Register(&spec.Action{
 		Category: "item", Name: "edit",
-		Summary:  "Change fields of an item; attachments and refs are added.",
-		Params:   append([]spec.Param{itemArg(), sphereParam(), {Name: "title", Kind: spec.String, Help: "New title."}}, itemFields()...),
-		Effects:  []string{"Rewrites the item and logs the fields changed."},
-		Examples: []string{"ordo item edit RDIR-17 --duration 30m --sphere pro", "ordo item edit RDIR-17 --attach artefact://pro/01JB2X5Q8 --sphere pro"},
+		Summary: "Change fields of an item; attachments and refs are added, --clear-ref removes a ref; --notes replaces the notes.",
+		Params: append(append([]spec.Param{itemArg(), sphereParam(), {Name: "title", Kind: spec.String, Help: "New title."}}, itemFields()...),
+			spec.Param{Name: "clear-ref", Kind: spec.StringList, Help: "Ref to remove (repeatable), e.g. office:U-0042."}),
+		Effects: []string{"Rewrites the item and logs the fields changed."},
+		Examples: []string{"ordo item edit RDIR-17 --duration 30m --sphere pro", "ordo item edit RDIR-17 --attach artefact://pro/01JB2X5Q8 --sphere pro",
+			"ordo item edit RDIR-17 --notes \"Contexte repris du dossier.\" --clear-ref office:U-0042 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			return st.EditItem(ctx.Str("id"), itemInput(ctx))
+			in := itemInput(ctx)
+			in.ClearRefs = ctx.List("clear-ref")
+			return st.EditItem(ctx.Str("id"), in)
 		}),
 	})
 	spec.Register(&spec.Action{

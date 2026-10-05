@@ -190,6 +190,8 @@ func (s *Store) Items(f ItemFilter) ([]*Item, error) {
 type ItemInput struct {
 	Title, Owner, Kind, Duration, Expected, Notes string
 	Attach, Refs                                  []string
+	// ClearRefs: refs edit removes.
+	ClearRefs []string
 }
 
 func (in *ItemInput) check() error {
@@ -462,6 +464,19 @@ func (s *Store) EditItem(id string, in ItemInput) (*Item, error) {
 			if !contains(it.Refs, r) {
 				it.Refs = append(it.Refs, r)
 			}
+			changed = append(changed, "refs")
+		}
+		for _, r := range in.ClearRefs {
+			if !contains(it.Refs, r) {
+				return spec.UserError("item %s has no ref %q; its refs: %s", it.ID, r, strings.Join(it.Refs, ", "))
+			}
+			var kept []string
+			for _, x := range it.Refs {
+				if x != r {
+					kept = append(kept, x)
+				}
+			}
+			it.Refs = kept
 			changed = append(changed, "refs")
 		}
 		if len(changed) == 0 {

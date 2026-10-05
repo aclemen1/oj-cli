@@ -39,6 +39,14 @@ func TestCreateRef(t *testing.T) {
 	if _, err := s.CreateRef("RDIR-1", "gmail"); kind(err) != "user_error" {
 		t.Fatal("a scheme without create command is refused")
 	}
+	// A ref can be removed; an unknown one is refused.
+	cleared := must[*Item](t)(s.EditItem("RDIR-1", ItemInput{Notes: "Contexte repris.", ClearRefs: []string{"office:U-0099"}}))
+	if contains(cleared.Refs, "office:U-0099") || cleared.Notes != "Contexte repris." {
+		t.Fatalf("clear ref %+v", cleared)
+	}
+	if _, err := s.EditItem("RDIR-1", ItemInput{ClearRefs: []string{"office:U-0099"}}); kind(err) != "user_error" {
+		t.Fatal("clearing an absent ref is refused")
+	}
 	// The scheme defaults to the only one that can create.
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Autre"}, true, ""))
 	if c := must[*Created](t)(s.CreateRef("RDIR-2", "")); c.Ref != "office:U-0099" {
