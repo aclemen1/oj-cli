@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"sort"
 	"strings"
 	"time"
 
@@ -20,15 +21,41 @@ type Created struct {
 	Linked bool   `json:"linked,omitempty"`
 }
 
-// CanCreateRef tells whether the sphere knows how to create a target of this scheme.
-func (s *Store) CanCreateRef(scheme string) bool {
-	return len(s.Refs[scheme].Create) > 0
+// CreateSchemes lists the ref schemes the sphere can create a target for, sorted.
+func (s *Store) CreateSchemes() []string {
+	var out []string
+	for k, v := range s.Refs {
+		if len(v.Create) > 0 {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// CreateScheme picks the scheme to create: the one asked, or the only one configured.
+func (s *Store) CreateScheme(asked string) (string, error) {
+	if asked != "" {
+		return asked, nil
+	}
+	l := s.CreateSchemes()
+	switch len(l) {
+	case 0:
+		return "", spec.UserError("no refs.<scheme>.create in the sphere's configuration: ordo cannot create a target")
+	case 1:
+		return l[0], nil
+	}
+	return "", spec.UserError("several schemes can create a target (%s): pass --scheme, e.g. --scheme %s", strings.Join(l, ", "), l[0])
 }
 
 // CreateRef makes a target for an item with the sphere's create command of
 // the scheme (e.g. an office dossier), adds its ref to the item, then runs the
 // link command. An item that already has a ref of the scheme keeps it.
 func (s *Store) CreateRef(id, scheme string) (*Created, error) {
+	scheme, err := s.CreateScheme(scheme)
+	if err != nil {
+		return nil, err
+	}
 	src, ok := s.Refs[scheme]
 	if !ok || len(src.Create) == 0 {
 		return nil, spec.UserError("no create command for refs %q in the sphere's configuration (refs.%s.create)", scheme+":", scheme)

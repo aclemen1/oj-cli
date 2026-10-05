@@ -58,7 +58,7 @@ func init() {
 			"reads the new id, adds <scheme>:<id> to the item, then runs refs.<scheme>.link with {id}. " +
 			"An item that already has a ref of the scheme keeps it (known: true). Create a dossier only when the item needs follow-up.",
 		Params: []spec.Param{itemArg(), sphereParam(),
-			{Name: "scheme", Kind: spec.String, Default: "office", Help: "Ref scheme whose create command to run."}},
+			{Name: "scheme", Kind: spec.String, Help: "Ref scheme whose create command to run. Defaults to the only scheme with one."}},
 		Effects:  []string{"Runs the sphere's create and link commands; adds the ref to the item."},
 		Examples: []string{"ordo item create-ref PSEC-3 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {

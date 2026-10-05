@@ -39,4 +39,16 @@ func TestCreateRef(t *testing.T) {
 	if _, err := s.CreateRef("RDIR-1", "gmail"); kind(err) != "user_error" {
 		t.Fatal("a scheme without create command is refused")
 	}
+	// The scheme defaults to the only one that can create.
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Autre"}, true, ""))
+	if c := must[*Created](t)(s.CreateRef("RDIR-2", "")); c.Ref != "office:U-0099" {
+		t.Fatalf("default scheme: %+v", c)
+	}
+	s.Refs["tracker"] = config.RefSource{Create: []string{"echo", "T-1"}}
+	if _, err := s.CreateRef("RDIR-2", ""); kind(err) != "user_error" || !strings.Contains(err.Error(), "--scheme") {
+		t.Fatalf("two schemes need --scheme: %v", err)
+	}
+	if c := must[*Created](t)(s.CreateRef("RDIR-2", "tracker")); c.Ref != "tracker:T-1" {
+		t.Fatalf("named scheme: %+v", c)
+	}
 }
