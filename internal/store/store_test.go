@@ -274,6 +274,44 @@ func TestHandEditedFileIsRead(t *testing.T) {
 	}
 }
 
+func TestImportTasks(t *testing.T) {
+	s := withRDIR(t)
+	raw := []byte(`{"items": [
+	  {"id": "t1", "title": "Audit S3", "notes": "voir le rapport", "status": "needsAction",
+	   "links": [{"type": "email", "link": "https://mail.google.com/mail/#all/18f0abc"}]},
+	  {"id": "t2", "title": "Ancien point", "status": "completed"},
+	  {"id": "t3", "title": "Budget", "status": "needsAction", "due": "2026-10-20T00:00:00.000Z"},
+	  {"id": "t4", "title": "  ", "status": "needsAction"}
+	]}`)
+	tasks := must[[]Task](t)(ParseTasks(raw))
+	dry := must[*Imported](t)(s.ImportTasks("RDIR", tasks, false, false, true))
+	if len(dry.Created) != 2 || dry.Created[0].ID != "" {
+		t.Fatalf("dry run %+v", dry)
+	}
+	if l := must[[]*Item](t)(s.Items(ItemFilter{Meeting: "RDIR", State: "all"})); len(l) != 0 {
+		t.Fatal("dry run wrote items")
+	}
+	got := must[*Imported](t)(s.ImportTasks("RDIR", tasks, false, false, false))
+	if len(got.Created) != 2 || len(got.Skipped) != 2 {
+		t.Fatalf("import %+v", got)
+	}
+	a := got.Created[0]
+	if a.ID != "RDIR-1" || a.State != "proposed" || a.Sitting != "RDIR-2026-10-08" ||
+		strings.Join(a.Refs, " ") != "gtasks:t1 gmail:message/18f0abc" || a.Notes != "voir le rapport" {
+		t.Fatalf("first item %+v", a)
+	}
+	if !strings.Contains(got.Created[1].Notes, "2026-10-20") {
+		t.Fatalf("due date lost: %q", got.Created[1].Notes)
+	}
+	again := must[*Imported](t)(s.ImportTasks("RDIR", tasks, false, false, false))
+	if len(again.Created) != 0 || again.Skipped[0]["reason"] != "already imported" || again.Skipped[2]["reason"] != "already imported" {
+		t.Fatalf("replay %+v", again)
+	}
+	if _, err := ParseTasks([]byte(`nope`)); kind(err) != "user_error" {
+		t.Fatal("bad JSON should be a user error")
+	}
+}
+
 func TestConcurrentAddsGetDistinctIDs(t *testing.T) {
 	s := withRDIR(t)
 	const n = 12

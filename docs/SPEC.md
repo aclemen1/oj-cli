@@ -376,7 +376,8 @@ A meeting's own settings live in its `meeting.md`.
 4. **Calendars**: `ics` and `command` providers, reconciliation, `sync`.
 5. **Hooks**.
 6. **TUI**, live sitting view included.
-7. **Import** from Google Tasks.
+7. **Import** from Google Tasks. (Written 5 October 2026: replayable, refs
+   `gtasks:<id>` and `gmail:message/<id>`, due date kept in the notes.)
 
 ## 14. References
 

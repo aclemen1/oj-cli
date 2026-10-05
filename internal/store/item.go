@@ -244,32 +244,37 @@ func (s *Store) AddItem(alias string, in ItemInput, accept bool, sitting string)
 		} else if sit, err = s.nextOpen(m, s.today(), true, "", "planned"); err != nil {
 			return "", err
 		}
-		m.Counter++
-		it = &Item{ID: fmt.Sprintf("%s-%d", m.Alias, m.Counter), Meeting: m.Alias, Title: strings.TrimSpace(in.Title),
-			Owner: in.Owner, Kind: in.Kind, Duration: in.Duration, Expected: in.Expected,
-			Attachments: in.Attach, Refs: in.Refs, State: "proposed", Notes: in.Notes}
-		if it.Kind == "" {
-			it.Kind = m.ItemKind
-		}
-		if it.Kind == "" {
-			it.Kind = "discussion"
-		}
-		if it.Duration == "" {
-			it.Duration = m.ItemDuration
-		}
-		if sit != nil {
-			it.Sitting = sit.ID
-		}
-		if accept {
-			it.State = "accepted"
-		}
-		s.log(&it.Log, it.State+" for "+orNone(it.Sitting))
-		if err := s.saveMeeting(m); err != nil {
+		if it, err = s.addItem(m, sit, in, accept); err != nil {
 			return "", err
 		}
-		return "item add " + it.ID, s.saveItem(it)
+		return "item add " + it.ID, s.saveMeeting(m)
 	})
 	return it, err
+}
+
+// addItem writes a new item of m, under a lock the caller holds; the caller saves m.
+func (s *Store) addItem(m *Meeting, sit *Sitting, in ItemInput, accept bool) (*Item, error) {
+	m.Counter++
+	it := &Item{ID: fmt.Sprintf("%s-%d", m.Alias, m.Counter), Meeting: m.Alias, Title: strings.TrimSpace(in.Title),
+		Owner: in.Owner, Kind: in.Kind, Duration: in.Duration, Expected: in.Expected,
+		Attachments: in.Attach, Refs: in.Refs, State: "proposed", Notes: in.Notes}
+	if it.Kind == "" {
+		it.Kind = m.ItemKind
+	}
+	if it.Kind == "" {
+		it.Kind = "discussion"
+	}
+	if it.Duration == "" {
+		it.Duration = m.ItemDuration
+	}
+	if sit != nil {
+		it.Sitting = sit.ID
+	}
+	if accept {
+		it.State = "accepted"
+	}
+	s.log(&it.Log, it.State+" for "+orNone(it.Sitting))
+	return it, s.saveItem(it)
 }
 
 // changeItem loads an item under the lock, applies fn and saves it.
