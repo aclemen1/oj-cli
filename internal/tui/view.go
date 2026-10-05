@@ -143,11 +143,13 @@ func (m *model) renderAgenda() []string {
 	if len(m.agenda.Items) == 0 {
 		rows = append([]string{sMuted.Render("  (no item on the agenda — n adds one)")}, rows...)
 	}
+	// The list keeps at least half of the room when it needs it; the pane takes the rest.
+	room := m.h - 2 - len(out)
+	listH := max(3, min(len(rows), room/2))
 	var pane []string
 	if r := m.current(); r != nil {
-		pane = m.pane(r.item, r.outcome)
+		pane = m.pane(r.item, r.outcome, room-listH-1)
 	}
-	listH := max(3, m.h-2-len(out)-len(pane))
 	rows = window(rows, m.sel+2, listH)
 	if len(pane) > 0 {
 		rows = append(rows, "")
@@ -156,10 +158,11 @@ func (m *model) renderAgenda() []string {
 }
 
 // pane shows the content of one item under the list: owner, deferrals,
-// question, attachments, refs, notes and its outcome in this sitting.
-func (m *model) pane(it *store.Item, o *store.Outcome) []string {
+// question, attachments, refs, notes, its outcome in this sitting, and what
+// the sphere's ref commands say about its refs (the dossier behind office:…).
+func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 	w := max(20, m.w-2)
-	maxLines := min(14, max(4, (m.h-2)/2))
+	maxLines = max(4, maxLines)
 	head := fmt.Sprintf("── %s · %s ", it.ID, it.Title)
 	lines := []string{sTitle.Render(pad(head+strings.Repeat("─", max(0, w-ansi.StringWidth(head))), w))}
 	field := func(label, v string) {
@@ -198,6 +201,27 @@ func (m *model) pane(it *store.Item, o *store.Outcome) []string {
 		field("Outcome", fmt.Sprintf("%s by %s, next %s", o.Status, o.By, o.Next))
 	}
 	field("Reason", it.Reason)
+	for _, ref := range it.Refs {
+		if !m.st.CanShowRef(ref) {
+			continue
+		}
+		head := fmt.Sprintf("·· %s ", ref)
+		lines = append(lines, sMuted.Render(head+strings.Repeat("·", max(0, w-ansi.StringWidth(head)))))
+		e, ok := m.refs[ref]
+		switch {
+		case !ok || (e.loading && e.shown.Ref == ""):
+			lines = append(lines, sMuted.Render("  loading…"))
+		case e.shown.Error != "":
+			lines = append(lines, sErr.Render("  "+e.shown.Error))
+		default:
+			for _, l := range strings.Split(e.shown.Text, "\n") {
+				if strings.TrimSpace(l) == "" && len(lines) > 0 && lines[len(lines)-1] == "" {
+					continue
+				}
+				lines = append(lines, strings.Split(ansi.Wordwrap(l, w, ""), "\n")...)
+			}
+		}
+	}
 	if len(lines) > maxLines {
 		lines = append(lines[:maxLines-1], sMuted.Render("          … enter shows the whole item"))
 	}
@@ -263,6 +287,24 @@ func (m *model) renderItem() []string {
 			}
 		}
 	}
+	for _, ref := range it.Refs {
+		if !m.st.CanShowRef(ref) {
+			continue
+		}
+		lines = append(lines, "", sSection.Render(ref))
+		switch e, ok := m.refs[ref]; {
+		case !ok || (e.loading && e.shown.Ref == ""):
+			lines = append(lines, sMuted.Render("  loading…"))
+		case e.shown.Error != "":
+			lines = append(lines, sErr.Render("  "+e.shown.Error))
+		default:
+			for _, l := range strings.Split(e.shown.Text, "\n") {
+				for _, wl := range strings.Split(ansi.Wordwrap(l, max(20, m.w-4), ""), "\n") {
+					lines = append(lines, "  "+wl)
+				}
+			}
+		}
+	}
 	lines = append(lines, "", sSection.Render("Log"))
 	for _, l := range it.Log {
 		lines = append(lines, sMuted.Render(fmt.Sprintf("  %s  %s  %s", l.At, l.By, l.What)))
@@ -315,7 +357,7 @@ func (m *model) renderLive() []string {
 	out = append(out, "", fmt.Sprintf("  elapsed %s of %s  %s", sBold.Render(clock(total)), clock(planned), state), "")
 	if m.live.cur < len(m.agenda.Items) {
 		ai := m.agenda.Items[m.live.cur]
-		out = append(out, m.pane(ai.Item, ai.Outcome)...)
+		out = append(out, m.pane(ai.Item, ai.Outcome, m.h-2-len(out))...)
 	}
 	return out
 }

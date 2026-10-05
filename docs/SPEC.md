@@ -367,8 +367,8 @@ ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 | View | Shows | Actions |
 |---|---|---|
 | Meetings | alias, next sitting, items on the agenda and proposed | open (`enter`), actions (`A`) |
-| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart; under the list, a pane with the selected item (owner, deferrals, question, attachments, refs, notes, outcome) | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
-| Item | fields, notes, history with outcomes and actions, log | `e` edit in `$EDITOR` (then committed) |
+| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart; under the list, a pane with the selected item (owner, deferrals, question, attachments, refs, notes, outcome, and what the ref commands say about the refs' targets) | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
+| Item | fields, notes, history with outcomes and actions, the full text of each ref's target, log | `e` edit in `$EDITOR` (then committed) |
 | Sitting (live) | the current item, a timer per item, elapsed against plan, the same pane for the current item | `space` timer, `n`/`p` item, `s` summary, `D` decision, `t` action, `-` defer, `h` hold |
 | Actions | actions by due date, overdue in red | `space` done or open, `o` show done |
 
@@ -388,6 +388,9 @@ spheres:
     hooks:
       - on: [outcome.set, item.deferred]
         run: ["office-notify-from-ordo"]
+    refs:
+      office:
+        show: ["office", "show", "{id}", "--format", "text"]
 calendars:
   work:
     type: command
@@ -398,6 +401,11 @@ render:
 ```
 
 Hooks belong to a sphere, so a hook of one sphere never sees another.
+
+`refs` say how to summarise the target of an item's ref, by scheme: for
+`office:U-0042`, `{id}` becomes `U-0042`. The TUI shows that text for the
+selected item, refreshed after a minute, and `ordo item show --with-refs`
+returns it to agents. Refs of a scheme with no command stay plain text.
 
 A meeting's own settings live in its `meeting.md`.
 

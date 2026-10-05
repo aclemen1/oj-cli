@@ -20,6 +20,14 @@ type Sphere struct {
 	VCS    string       `yaml:"vcs,omitempty"` // jj (default), git, none
 	Render SphereRender `yaml:"render,omitempty"`
 	Hooks  []Hook       `yaml:"hooks,omitempty"`
+	// Refs: per ref scheme (office in office:U-0042), how to summarise its target.
+	Refs map[string]RefSource `yaml:"refs,omitempty"`
+}
+
+// RefSource runs Show, with {id} replaced by what follows the scheme, and
+// prints a short text about the target.
+type RefSource struct {
+	Show []string `yaml:"show"`
 }
 
 // Hook runs a command on events of a sphere's meetings.

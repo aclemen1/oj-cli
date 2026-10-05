@@ -110,14 +110,26 @@ type model struct {
 	status    string
 	statusErr bool
 	warnings  warnings
+
+	// refs caches what the sphere's ref commands say, by ref.
+	refs map[string]refEntry
 }
+
+type refEntry struct {
+	shown   store.RefShown
+	at      time.Time
+	loading bool
+}
+
+const refFresh = time.Minute
 
 func newModel(st *store.Store) *model {
 	in := textinput.New()
 	styles := in.Styles()
 	styles.Cursor.Blink = false
 	in.SetStyles(styles)
-	m := &model{st: st, now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}}}
+	m := &model{st: st, now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}},
+		refs: map[string]refEntry{}}
 	st.Warn = m.warnings.add
 	return m
 }
@@ -168,7 +180,43 @@ type (
 		err    error
 	}
 	tickMsg struct{}
+	refMsg  struct{ shown store.RefShown }
 )
+
+// shownItem is the item whose pane is on screen.
+func (m *model) shownItem() *store.Item {
+	switch m.view {
+	case vAgenda:
+		if r := m.current(); r != nil {
+			return r.item
+		}
+	case vLive:
+		return m.liveItem()
+	case vItem:
+		return m.item
+	}
+	return nil
+}
+
+// fetchRefs asks for the refs of the shown item that are missing or stale.
+func (m *model) fetchRefs() tea.Cmd {
+	it := m.shownItem()
+	if it == nil {
+		return nil
+	}
+	var cmds []tea.Cmd
+	for _, ref := range it.Refs {
+		e, ok := m.refs[ref]
+		if !m.st.CanShowRef(ref) || e.loading || (ok && m.now().Sub(e.at) < refFresh) {
+			continue
+		}
+		e.loading = true
+		m.refs[ref] = e
+		ref := ref
+		cmds = append(cmds, func() tea.Msg { return refMsg{m.st.ShowRef(ref)} })
+	}
+	return tea.Batch(cmds...)
+}
 
 func (m *model) loadMeetings() tea.Cmd {
 	return func() tea.Msg {
@@ -294,12 +342,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.view != vLive {
 			m.view = vAgenda
 		}
+		return m, m.fetchRefs()
+	case refMsg:
+		m.refs[msg.shown.Ref] = refEntry{shown: msg.shown, at: m.now()}
 	case itemMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
 			break
 		}
 		m.item = msg.item
+		return m, m.fetchRefs()
 	case actionsMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
@@ -332,11 +384,13 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case vMeetings:
 			return m, m.keyMeetings(msg)
 		case vAgenda:
-			return m, m.keyAgenda(msg)
+			cmd := m.keyAgenda(msg)
+			return m, tea.Batch(cmd, m.fetchRefs())
 		case vItem:
 			return m, m.keyItem(msg)
 		case vLive:
-			return m, m.keyLive(msg)
+			cmd := m.keyLive(msg)
+			return m, tea.Batch(cmd, m.fetchRefs())
 		case vActions:
 			return m, m.keyActions(msg)
 		}

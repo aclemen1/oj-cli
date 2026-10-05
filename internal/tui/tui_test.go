@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
+	"github.com/aclemen1/ordo-cli/internal/config"
 	"github.com/aclemen1/ordo-cli/internal/store"
 )
 
@@ -36,7 +37,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg:
 		return "ordo"
 	}
 	return "tea.other"
@@ -171,6 +172,26 @@ func TestItemPane(t *testing.T) {
 	press(t, m, "l")
 	if s := screen(m); !strings.Contains(s, "── RDIR-1 · Budget 2027") {
 		t.Fatalf("live pane:\n%s", s)
+	}
+}
+
+func TestPaneShowsRefTarget(t *testing.T) {
+	m, st, _ := setup(t)
+	st.Refs = map[string]config.RefSource{"office": {Show: []string{"printf", "%s · open · Budget 2027\n\n## Instruction\n\nPréparer le budget avec la direction.", "{id}"}}}
+	st.EditItem("RDIR-1", store.ItemInput{Refs: []string{"office:U-0042", "gmail:thread/abc"}})
+	press(t, m, "enter")
+	s := screen(m)
+	for _, want := range []string{"·· office:U-0042", "U-0042 · open · Budget 2027", "Préparer le budget avec la direction."} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("ref pane lacks %q:\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "·· gmail:thread/abc") {
+		t.Fatal("a ref without command gets no section")
+	}
+	press(t, m, "enter")
+	if s := screen(m); m.view != vItem || !strings.Contains(s, "Préparer le budget avec la direction.") {
+		t.Fatalf("item view lacks the ref text:\n%s", s)
 	}
 }
 

@@ -33,6 +33,8 @@ type Store struct {
 	Tools  config.Render
 	// Hooks run on the events of this sphere.
 	Hooks []config.Hook
+	// Refs summarise the targets of item refs, by scheme.
+	Refs map[string]config.RefSource
 
 	mu      sync.Mutex
 	pending []hookEvent
@@ -61,7 +63,7 @@ func Open(cfg *config.Config, sphere, by string) (*Store, error) {
 	}
 	return &Store{Sphere: sphere, Root: s.Root, VCS: s.VCS, By: by, Now: time.Now,
 		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "ordo: warning: "+m) },
-		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks}, nil
+		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks, Refs: s.Refs}, nil
 }
 
 // Init creates the store directory and, with a VCS, its repository.

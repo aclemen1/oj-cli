@@ -89,11 +89,23 @@ func registerItems() {
 	})
 	spec.Register(&spec.Action{
 		Category: "item", Name: "show",
-		Summary:  "Show an item: fields, history across sittings with outcomes, log.",
-		Params:   []spec.Param{itemArg(), sphereParam()},
-		Examples: []string{"ordo item show RDIR-17 --sphere pro"},
+		Summary: "Show an item: fields, history across sittings with outcomes, log.",
+		Discussion: "With --with-refs, each ref whose scheme the sphere's configuration knows (refs: under the sphere) " +
+			"comes with what its command says about the target, e.g. the dossier behind office:U-0042.",
+		Params:   []spec.Param{itemArg(), sphereParam(), {Name: "with-refs", Kind: spec.Bool, Help: "Add a summary of each ref's target."}},
+		Examples: []string{"ordo item show RDIR-17 --sphere pro", "ordo item show RDIR-17 --with-refs --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			return st.Item(ctx.Str("id"))
+			it, err := st.Item(ctx.Str("id"))
+			if err != nil || !ctx.Bool("with-refs") {
+				return it, err
+			}
+			shown := []store.RefShown{}
+			for _, r := range it.Refs {
+				if st.CanShowRef(r) {
+					shown = append(shown, st.ShowRef(r))
+				}
+			}
+			return map[string]any{"item": it, "refs": shown}, nil
 		}),
 	})
 	spec.Register(&spec.Action{
