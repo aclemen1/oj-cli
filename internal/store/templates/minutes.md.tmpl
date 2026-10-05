@@ -1,0 +1,36 @@
+# {{t "Minutes"}} — {{.Meeting.Title}}
+
+**{{.Date}}{{with .Sitting.Time}} · {{.}}{{end}}{{with .Sitting.Place}} · {{.}}{{end}}**
+{{- with .Sitting.Present}}
+
+{{t "Present:"}} {{join . ", "}}
+{{- end}}
+{{- with .Sitting.Excused}}
+
+{{t "Excused:"}} {{join . ", "}}
+{{- end}}
+{{- if not .Final}}
+
+*{{t "Draft"}}*
+{{- end}}
+{{range .Items}}
+## {{.N}}. {{.Item.Title}}
+{{with .Outcome}}{{with .Summary}}
+{{.}}
+{{end}}{{with .Decision}}
+**{{t "Decision:"}}** {{.}}
+{{end}}{{with .Actions}}
+{{range .}}- {{.What}}{{with .Who}} — {{.}}{{end}}{{with .Due}} — {{date .}}{{end}}
+{{end}}{{end}}{{end}}
+{{- if .Deferred}}
+*{{t "Deferred to the next sitting."}}*
+{{end}}
+{{- end}}
+{{- with .Actions}}
+
+## {{t "Actions"}}
+
+| {{t "Action"}} | {{t "Who"}} | {{t "Due"}} | {{t "Item"}} |
+|---|---|---|---|
+{{range .}}| {{cell .What}} | {{cell .Who}} | {{date .Due}} | {{.N}} |
+{{end}}{{- end}}

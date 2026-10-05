@@ -23,6 +23,7 @@ type Meeting struct {
 	Refs         []string   `yaml:"refs,omitempty" json:"refs,omitempty"`
 	ItemDuration string     `yaml:"item_duration,omitempty" json:"item_duration,omitempty"`
 	ItemKind     string     `yaml:"item_kind,omitempty" json:"item_kind,omitempty"`
+	Lang         string     `yaml:"lang,omitempty" json:"lang,omitempty"`
 	Counter      int        `yaml:"counter" json:"-"`
 	Log          []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
 	Notes        string     `yaml:"-" json:"notes,omitempty"`
@@ -84,9 +85,11 @@ func (s *Store) Meetings() ([]*Meeting, error) {
 
 // MeetingInput carries the fields of meeting add and edit.
 type MeetingInput struct {
-	Title, RRule, Start, TZ, Duration, Place, Chair, ItemDuration, ItemKind string
-	Members, Refs                                                           []string
+	Title, RRule, Start, TZ, Duration, Place, Chair, ItemDuration, ItemKind, Lang string
+	Members, Refs                                                                 []string
 }
+
+var Langs = []string{"en", "fr"}
 
 // AddMeeting creates a meeting.
 func (s *Store) AddMeeting(alias string, in MeetingInput) (*Meeting, error) {
@@ -137,6 +140,12 @@ func applyMeeting(m *Meeting, in MeetingInput) error {
 		}
 		m.ItemKind = in.ItemKind
 	}
+	if in.Lang != "" {
+		if !contains(Langs, in.Lang) {
+			return spec.UserError("lang %q: expected en or fr", in.Lang)
+		}
+		m.Lang = in.Lang
+	}
 	return nil
 }
 
@@ -176,7 +185,7 @@ func (s *Store) EditMeeting(alias string, in MeetingInput) (*Meeting, error) {
 			m.Refs = in.Refs
 			changed = append(changed, "refs")
 		}
-		for name, v := range map[string]string{"rrule": in.RRule + in.Start, "duration": in.Duration, "item_duration": in.ItemDuration, "item_kind": in.ItemKind} {
+		for name, v := range map[string]string{"rrule": in.RRule + in.Start, "duration": in.Duration, "item_duration": in.ItemDuration, "item_kind": in.ItemKind, "lang": in.Lang} {
 			if v != "" {
 				changed = append(changed, name)
 			}

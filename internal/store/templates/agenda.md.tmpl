@@ -1,0 +1,23 @@
+# {{t "Agenda"}} — {{.Meeting.Title}}
+
+**{{.Date}}{{with .Sitting.Time}} · {{.}}{{end}}{{with .Sitting.Place}} · {{.}}{{end}}**
+{{- if not .Final}}
+
+*{{t "Draft"}}*
+{{- end}}
+{{range .Items}}
+## {{.N}}. {{.Item.Title}}
+
+{{.Start}} · {{dur .Item.Duration}} · {{kind .Item.Kind}}{{with .Item.Owner}} · {{.}}{{end}}
+{{- with .Item.Expected}}
+
+{{t "Question:"}} {{.}}
+{{- end}}
+{{- with .Item.Attachments}}
+
+{{t "Attachments:"}} {{join . ", "}}
+{{- end}}
+{{else}}
+{{t "No item on the agenda."}}
+{{end}}
+{{t "Planned time:"}} {{dur .Planned}}{{with .Sitting.Duration}} / {{dur .}}{{end}}

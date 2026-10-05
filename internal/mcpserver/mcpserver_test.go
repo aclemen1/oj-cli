@@ -74,12 +74,12 @@ func TestToolsAndSphereDefault(t *testing.T) {
 		names = append(names, tl.Name)
 	}
 	joined := strings.Join(names, " ")
-	for _, want := range []string{"meeting_add", "item_add", "sitting_minute", "outcome_set"} {
+	for _, want := range []string{"meeting_add", "item_add", "sitting_minute", "outcome_set", "doc_render", "actions_ls", "import_gtasks"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("missing %s in %s", want, joined)
 		}
 	}
-	for _, unwanted := range []string{"init", "mcp", "schema"} {
+	for _, unwanted := range []string{"setup_init", "setup_mcp", "setup_tui", "meta_schema", "meta_skill"} {
 		for _, n := range names {
 			if n == unwanted {
 				t.Fatalf("%s should not be a tool", n)

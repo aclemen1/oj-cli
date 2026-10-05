@@ -14,12 +14,27 @@ import (
 )
 
 type Sphere struct {
-	Root string `yaml:"root"`
-	VCS  string `yaml:"vcs,omitempty"` // jj (default), git, none
+	Root   string       `yaml:"root"`
+	VCS    string       `yaml:"vcs,omitempty"` // jj (default), git, none
+	Render SphereRender `yaml:"render,omitempty"`
+}
+
+// SphereRender: documents of a sphere.
+type SphereRender struct {
+	Lang         string            `yaml:"lang,omitempty"`          // en (default) or fr
+	ReferenceDoc string            `yaml:"reference_doc,omitempty"` // docx layout for pandoc
+	Templates    map[string]string `yaml:"templates,omitempty"`     // agenda, minutes: Go templates
+}
+
+// Render: tools shared by every sphere.
+type Render struct {
+	Pandoc    string `yaml:"pandoc,omitempty"`
+	PDFEngine string `yaml:"pdf_engine,omitempty"`
 }
 
 type Config struct {
 	Spheres map[string]Sphere `yaml:"spheres"`
+	Render  Render            `yaml:"render,omitempty"`
 
 	path string
 }
@@ -61,7 +76,17 @@ func Load(flag string) (*Config, error) {
 		if s.VCS == "" {
 			s.VCS = "jj"
 		}
+		s.Render.ReferenceDoc = Expand(s.Render.ReferenceDoc)
+		for k, v := range s.Render.Templates {
+			s.Render.Templates[k] = Expand(v)
+		}
 		c.Spheres[name] = s
+	}
+	if c.Render.Pandoc == "" {
+		c.Render.Pandoc = "pandoc"
+	}
+	if c.Render.PDFEngine == "" {
+		c.Render.PDFEngine = "xelatex"
 	}
 	return c, nil
 }

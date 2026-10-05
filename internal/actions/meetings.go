@@ -21,7 +21,7 @@ func meetingInput(ctx *spec.Context) store.MeetingInput {
 	return store.MeetingInput{
 		Title: ctx.Str("title"), RRule: ctx.Str("rrule"), Start: ctx.Str("start"), TZ: ctx.Str("tz"),
 		Duration: ctx.Str("duration"), Place: ctx.Str("place"), Chair: ctx.Str("chair"),
-		ItemDuration: ctx.Str("item-duration"), ItemKind: ctx.Str("item-kind"),
+		ItemDuration: ctx.Str("item-duration"), ItemKind: ctx.Str("item-kind"), Lang: ctx.Str("lang"),
 		Members: ctx.List("member"), Refs: ctx.List("ref"),
 	}
 }
@@ -39,6 +39,7 @@ func meetingFields() []spec.Param {
 		{Name: "ref", Kind: spec.StringList, Help: "Link to another tool (repeatable), e.g. office:U-RDIR; on edit, replaces the list."},
 		{Name: "item-duration", Kind: spec.String, Help: "Default duration of an item, e.g. 10m."},
 		{Name: "item-kind", Kind: spec.String, Enum: store.Kinds, Help: "Default kind of an item."},
+		{Name: "lang", Kind: spec.String, Enum: store.Langs, Help: "Language of the agenda and minutes. Defaults to the sphere's, then en."},
 	}
 }
 

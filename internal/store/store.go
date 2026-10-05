@@ -27,6 +27,9 @@ type Store struct {
 	Now func() time.Time
 	// Warn receives what went wrong after a write succeeded (a failed commit).
 	Warn func(string)
+	// Render and Tools set how documents are rendered.
+	Render config.SphereRender
+	Tools  config.Render
 }
 
 type LogEntry struct {
@@ -51,7 +54,8 @@ func Open(cfg *config.Config, sphere, by string) (*Store, error) {
 		by = "user"
 	}
 	return &Store{Sphere: sphere, Root: s.Root, VCS: s.VCS, By: by, Now: time.Now,
-		Warn: func(m string) { fmt.Fprintln(os.Stderr, "ordo: warning: "+m) }}, nil
+		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "ordo: warning: "+m) },
+		Render: s.Render, Tools: cfg.Render}, nil
 }
 
 // Init creates the store directory and, with a VCS, its repository.

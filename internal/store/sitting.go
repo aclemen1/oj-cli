@@ -436,8 +436,9 @@ func orNone(id string) string {
 }
 
 type Changed struct {
-	Sitting *Sitting `json:"sitting"`
-	Moved   []string `json:"moved,omitempty"`
+	Sitting  *Sitting `json:"sitting"`
+	Moved    []string `json:"moved,omitempty"`
+	Rendered string   `json:"rendered,omitempty"`
 }
 
 // CancelSitting cancels a sitting; its items move to the next sitting.
@@ -484,7 +485,8 @@ func (s *Store) FreezeSitting(id string, leaveProposed bool) (*Changed, error) {
 		sit.Order = ids(on)
 		sit.State = "frozen"
 		s.log(&sit.Log, "frozen")
-		return nil
+		out.Rendered, err = s.renderFinal(sit, m, "agenda")
+		return err
 	})
 	out.Sitting = sit
 	return out, err
@@ -529,6 +531,7 @@ type Minuted struct {
 	Sitting  *Sitting `json:"sitting"`
 	Done     []string `json:"done"`
 	Deferred []string `json:"deferred"`
+	Rendered string   `json:"rendered,omitempty"`
 	Moved    []string `json:"moved,omitempty"`
 	Approved int      `json:"approved"`
 }
@@ -583,7 +586,8 @@ func (s *Store) MinuteSitting(id string) (*Minuted, error) {
 		}
 		sit.State = "minuted"
 		s.log(&sit.Log, "minuted")
-		return nil
+		out.Rendered, err = s.renderFinal(sit, m, "minutes")
+		return err
 	})
 	out.Sitting = sit
 	return out, err

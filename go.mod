@@ -8,6 +8,7 @@ require (
 	charm.land/lipgloss/v2 v2.0.6
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/teambition/rrule-go v1.8.2
+	github.com/yuin/goldmark v1.8.6
 	gopkg.in/yaml.v3 v3.0.1
 )
 

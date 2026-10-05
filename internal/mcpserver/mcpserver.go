@@ -68,7 +68,9 @@ func Spheres(cfg *config.Config, list string) ([]string, error) {
 // ToolName is the MCP name of an action: item add → item_add.
 func ToolName(a *spec.Action) string { return a.Category + "_" + a.Name }
 
-func served(a *spec.Action) bool { return !a.Top && a.Run != nil }
+func served(a *spec.Action) bool {
+	return a.Run != nil && a.Category != "setup" && a.Category != "meta"
+}
 
 func envelope(v any, err error) *mcp.CallToolResult {
 	var b []byte
