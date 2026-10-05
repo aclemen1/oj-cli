@@ -1,8 +1,8 @@
 package actions
 
 import (
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func init() {
@@ -11,7 +11,7 @@ func init() {
 		Summary:  "Take back a hold: the sitting is frozen again, or planned when its agenda was never frozen.",
 		Params:   []spec.Param{sittingArg("Sitting id."), sphereParam()},
 		Effects:  []string{"Rewrites the sitting's state; outcomes recorded meanwhile stay."},
-		Examples: []string{"ordo sitting unhold PSEC-2026-10-08 --sphere pro"},
+		Examples: []string{"oj sitting unhold PSEC-2026-10-08 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.UnholdSitting(ctx.Str("sitting"))
 		}),
@@ -25,7 +25,7 @@ func init() {
 		Params:      []spec.Param{sittingArg("Sitting id."), sphereParam()},
 		Effects:     []string{"Rewrites the sitting and its items; removes the rendered minutes."},
 		Destructive: true,
-		Examples:    []string{"ordo sitting unminute PSEC-2026-10-08 --sphere pro"},
+		Examples:    []string{"oj sitting unminute PSEC-2026-10-08 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.UnminuteSitting(ctx.Str("sitting"))
 		}),
@@ -35,7 +35,7 @@ func init() {
 		Summary:  "Take back a cancellation: the sitting is planned again. Items moved away by the cancellation stay where they went.",
 		Params:   []spec.Param{sittingArg("Sitting id."), sphereParam()},
 		Effects:  []string{"Marks the sitting planned again."},
-		Examples: []string{"ordo sitting restore PSEC-2026-10-15 --sphere pro"},
+		Examples: []string{"oj sitting restore PSEC-2026-10-15 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.RestoreSitting(ctx.Str("sitting"))
 		}),
@@ -46,7 +46,7 @@ func init() {
 		Params: []spec.Param{itemArg(), sphereParam(),
 			{Name: "accept", Kind: spec.Bool, Help: "For a dropped item: put it on the agenda at once."}},
 		Effects:  []string{"Rewrites the item, on its sitting when still planned, else on the next planned one."},
-		Examples: []string{"ordo item restore PSEC-3 --sphere pro", "ordo item restore PSEC-3 --accept --sphere pro"},
+		Examples: []string{"oj item restore PSEC-3 --sphere pro", "oj item restore PSEC-3 --accept --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.RestoreItem(ctx.Str("id"), ctx.Bool("accept"))
 		}),
@@ -60,7 +60,7 @@ func init() {
 		Params: []spec.Param{itemArg(), sphereParam(),
 			{Name: "scheme", Kind: spec.String, Help: "Ref scheme whose create command to run. Defaults to the only scheme with one."}},
 		Effects:  []string{"Runs the sphere's create and link commands; adds the ref to the item."},
-		Examples: []string{"ordo item create-ref PSEC-3 --sphere pro"},
+		Examples: []string{"oj item create-ref PSEC-3 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.CreateRef(ctx.Str("id"), ctx.Str("scheme"))
 		}),
@@ -70,7 +70,7 @@ func init() {
 		Summary:  "Take back a deferral: the item goes back to the sitting it was deferred from when still open, and is accepted.",
 		Params:   []spec.Param{itemArg(), sphereParam()},
 		Effects:  []string{"Rewrites the item's sitting and state."},
-		Examples: []string{"ordo item undefer PSEC-3 --sphere pro"},
+		Examples: []string{"oj item undefer PSEC-3 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.UndeferItem(ctx.Str("id"))
 		}),

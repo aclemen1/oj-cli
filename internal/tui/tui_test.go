@@ -8,8 +8,8 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func drive(t *testing.T, m *model, cmd tea.Cmd) {
@@ -38,7 +38,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 func typeName(v any) string {
 	switch v.(type) {
 	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg:
-		return "ordo"
+		return "oj"
 	}
 	return "tea.other"
 }

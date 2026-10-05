@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 // UnholdSitting takes back a hold: frozen again, or planned when the agenda

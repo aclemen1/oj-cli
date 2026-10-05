@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 // today is Monday 5 October 2026; RDIR meets on Thursdays at 09:00.

@@ -40,7 +40,7 @@ type Action struct {
 	Examples    []string `json:"examples"`
 	Effects     []string `json:"effects"`
 	Destructive bool     `json:"destructive"`
-	// Top actions are called `ordo <name>`; the others `ordo <category> <name>`.
+	// Top actions are called `oj <name>`; the others `oj <category> <name>`.
 	Top bool `json:"-"`
 	// Meta actions default to text output; action commands default to JSON.
 	Meta bool `json:"-"`
@@ -53,9 +53,9 @@ type Action struct {
 // Command is the CLI words that call the action.
 func (a *Action) Command() string {
 	if a.Top {
-		return "ordo " + a.Name
+		return "oj " + a.Name
 	}
-	return "ordo " + a.Category + " " + a.Name
+	return "oj " + a.Category + " " + a.Name
 }
 
 type Context struct {

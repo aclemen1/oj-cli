@@ -1,4 +1,4 @@
-// Package config reads ~/.config/ordo/config.yaml.
+// Package config reads ~/.config/oj/config.yaml.
 package config
 
 import (
@@ -12,7 +12,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/aclemen1/ordo-cli/internal/calendar"
+	"github.com/aclemen1/oj-cli/internal/calendar"
 )
 
 type Sphere struct {
@@ -65,17 +65,17 @@ type Config struct {
 
 var sphereName = regexp.MustCompile(`^[a-z][a-z0-9_-]{0,31}$`)
 
-// Path resolves the configuration file: the flag, then ORDO_CONFIG, then
-// ~/.config/ordo/config.yaml.
+// Path resolves the configuration file: the flag, then OJ_CONFIG, then
+// ~/.config/oj/config.yaml.
 func Path(flag string) string {
 	if flag != "" {
 		return Expand(flag)
 	}
-	if env := os.Getenv("ORDO_CONFIG"); env != "" {
+	if env := os.Getenv("OJ_CONFIG"); env != "" {
 		return Expand(env)
 	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "ordo", "config.yaml")
+	return filepath.Join(home, ".config", "oj", "config.yaml")
 }
 
 // Load reads the configuration. A missing file yields an empty one.

@@ -67,7 +67,7 @@ func TestCommandSource(t *testing.T) {
 	dir := t.TempDir()
 	script := filepath.Join(dir, "events.sh")
 	os.WriteFile(script, []byte(`#!/bin/sh
-test -n "$ORDO_FROM" || exit 3
+test -n "$OJ_FROM" || exit 3
 cat <<'EOF'
 [{"uid": "e1", "start": "2026-10-09T09:00:00+02:00", "end": "2026-10-09T10:30:00+02:00", "title": "Séance de direction",
   "recurring_id": "r1", "original_start": "2026-10-08T09:00:00+02:00"},

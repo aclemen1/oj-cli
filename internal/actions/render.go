@@ -1,9 +1,9 @@
 package actions
 
 import (
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func init() {
@@ -21,9 +21,9 @@ func init() {
 		},
 		Effects: []string{"Writes the document; a docx or PDF of a final document is committed in the store."},
 		Examples: []string{
-			"ordo render RDIR --sphere pro",
-			"ordo render RDIR-2026-10-08 --doc minutes --to docx --sphere pro",
-			"ordo render RDIR-2026-10-08 --to pdf --out ~/Desktop/odj.pdf --sphere pro",
+			"oj render RDIR --sphere pro",
+			"oj render RDIR-2026-10-08 --doc minutes --to docx --sphere pro",
+			"oj render RDIR-2026-10-08 --to pdf --out ~/Desktop/odj.pdf --sphere pro",
 		},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.RenderDoc(ctx.Str("sitting"), ctx.Str("doc"), ctx.Str("to"), config.Expand(ctx.Str("out")))

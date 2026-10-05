@@ -9,7 +9,7 @@ import (
 
 	"github.com/teambition/rrule-go"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 type Meeting struct {
@@ -47,7 +47,7 @@ func (s *Store) Meeting(alias string) (*Meeting, error) {
 	m := &Meeting{}
 	body, err := readDoc(s.meetingPath(a), m)
 	if os.IsNotExist(err) {
-		return nil, spec.NotFound("no meeting %q in sphere %s. List them with `ordo meeting ls --sphere %s`", a, s.Sphere, s.Sphere)
+		return nil, spec.NotFound("no meeting %q in sphere %s. List them with `oj meeting ls --sphere %s`", a, s.Sphere, s.Sphere)
 	}
 	if err != nil {
 		return nil, err
@@ -99,7 +99,7 @@ func (s *Store) AddMeeting(alias string, in MeetingInput) (*Meeting, error) {
 		return nil, err
 	}
 	if strings.TrimSpace(in.Title) == "" {
-		return nil, spec.UserError("meeting add needs --title. Example: ordo meeting add RDIR --title \"Séance de direction\" --sphere pro")
+		return nil, spec.UserError("meeting add needs --title. Example: oj meeting add RDIR --title \"Séance de direction\" --sphere pro")
 	}
 	m := &Meeting{Alias: a, Title: strings.TrimSpace(in.Title), Place: in.Place, Chair: in.Chair, Members: in.Members, Refs: in.Refs}
 	if err := applyMeeting(m, in); err != nil {
@@ -107,7 +107,7 @@ func (s *Store) AddMeeting(alias string, in MeetingInput) (*Meeting, error) {
 	}
 	err = s.Write("meeting add "+a, func() error {
 		if _, err := os.Stat(s.meetingPath(a)); err == nil {
-			return spec.Conflict("meeting %s already exists in sphere %s; change it with `ordo meeting edit %s`", a, s.Sphere, a)
+			return spec.Conflict("meeting %s already exists in sphere %s; change it with `oj meeting edit %s`", a, s.Sphere, a)
 		}
 		s.log(&m.Log, "created")
 		return s.saveMeeting(m)
@@ -192,7 +192,7 @@ func (s *Store) EditMeeting(alias string, in MeetingInput) (*Meeting, error) {
 			}
 		}
 		if len(changed) == 0 {
-			return spec.UserError("meeting edit changes nothing. Example: ordo meeting edit %s --duration 2h --sphere %s", a, s.Sphere)
+			return spec.UserError("meeting edit changes nothing. Example: oj meeting edit %s --duration 2h --sphere %s", a, s.Sphere)
 		}
 		sort.Strings(changed)
 		s.log(&m.Log, "edited "+strings.Join(changed, ", "))

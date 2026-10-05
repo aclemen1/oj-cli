@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func sittingArg(help string) spec.Param {
@@ -29,7 +29,7 @@ func registerSittings() {
 			{Name: "ahead", Kind: spec.String, Default: "3", Help: "Number of upcoming dates of each recurrence."},
 			{Name: "since", Kind: spec.String, Help: "Also list written sittings from this date, YYYY-MM-DD."},
 		},
-		Examples: []string{"ordo sitting ls RDIR --sphere pro", "ordo sitting ls --since 2026-01-01 --state minuted --sphere pro"},
+		Examples: []string{"oj sitting ls RDIR --sphere pro", "oj sitting ls --since 2026-01-01 --state minuted --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			ahead, err := strconv.Atoi(ctx.Str("ahead"))
 			if err != nil || ahead < 0 {
@@ -69,7 +69,7 @@ func registerSittings() {
 		Category: "sitting", Name: "show",
 		Summary:  "Show the agenda of a sitting: ordered items with slots, total time, proposals apart.",
 		Params:   []spec.Param{sittingArg(sittingOrAlias), sphereParam()},
-		Examples: []string{"ordo sitting show RDIR --sphere pro", "ordo sitting show RDIR-2026-10-08 --format text --sphere pro"},
+		Examples: []string{"oj sitting show RDIR --sphere pro", "oj sitting show RDIR-2026-10-08 --format text --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.Agenda(ctx.Str("sitting"))
 		}),
@@ -86,7 +86,7 @@ func registerSittings() {
 			{Name: "place", Kind: spec.String, Help: "Room or link. Defaults to the meeting's."},
 		},
 		Effects:  []string{"Writes a planned sitting; on a day that already has one, its id takes a suffix (-2)."},
-		Examples: []string{"ordo sitting add RETRAITE --date 2026-11-20 --time 08:30 --sphere pro"},
+		Examples: []string{"oj sitting add RETRAITE --date 2026-11-20 --time 08:30 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.AddSitting(ctx.Str("meeting"), ctx.Str("date"), ctx.Str("time"), ctx.Str("place"))
 		}),
@@ -96,7 +96,7 @@ func registerSittings() {
 		Summary:  "Give a sitting another date or time; its id keeps the original date.",
 		Params:   []spec.Param{sittingArg("Sitting id."), sphereParam(), {Name: "date", Kind: spec.String, Help: "New date, YYYY-MM-DD."}, {Name: "time", Kind: spec.String, Help: "New start time, HH:MM."}},
 		Effects:  []string{"Rewrites the sitting with its new date; its items stay on it."},
-		Examples: []string{"ordo sitting move RDIR-2026-10-08 --date 2026-10-09 --sphere pro"},
+		Examples: []string{"oj sitting move RDIR-2026-10-08 --date 2026-10-09 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.MoveSitting(ctx.Str("sitting"), ctx.Str("date"), ctx.Str("time"))
 		}),
@@ -106,7 +106,7 @@ func registerSittings() {
 		Summary:  "Cancel a sitting; its items move to the next planned sitting.",
 		Params:   []spec.Param{sittingArg("Sitting id."), sphereParam(), {Name: "reason", Kind: spec.String, Help: "Why, for the log."}},
 		Effects:  []string{"Marks the sitting cancelled.", "Plans its proposed, accepted and deferred items for the next planned sitting, state unchanged."},
-		Examples: []string{`ordo sitting cancel RDIR-2026-10-15 --reason "autumn holidays" --sphere pro`},
+		Examples: []string{`oj sitting cancel RDIR-2026-10-15 --reason "autumn holidays" --sphere pro`},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.CancelSitting(ctx.Str("sitting"), ctx.Str("reason"))
 		}),
@@ -116,7 +116,7 @@ func registerSittings() {
 		Summary:  "Close the agenda of a sitting.",
 		Params:   []spec.Param{sittingArg(sittingOrAlias), sphereParam(), {Name: "leave-proposed", Kind: spec.Bool, Help: "Move items still proposed to the next sitting instead of refusing."}},
 		Effects:  []string{"Marks the sitting frozen and records the agenda order.", "With --leave-proposed, plans its proposed items for the next planned sitting."},
-		Examples: []string{"ordo sitting freeze RDIR --sphere pro", "ordo sitting freeze RDIR-2026-10-08 --leave-proposed --sphere pro"},
+		Examples: []string{"oj sitting freeze RDIR --sphere pro", "oj sitting freeze RDIR-2026-10-08 --leave-proposed --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.FreezeSitting(ctx.Str("sitting"), ctx.Bool("leave-proposed"))
 		}),
@@ -126,7 +126,7 @@ func registerSittings() {
 		Summary:  "Reopen a frozen agenda.",
 		Params:   []spec.Param{sittingArg("Sitting id."), sphereParam()},
 		Effects:  []string{"Marks the sitting planned again."},
-		Examples: []string{"ordo sitting reopen RDIR-2026-10-08 --sphere pro"},
+		Examples: []string{"oj sitting reopen RDIR-2026-10-08 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.ReopenSitting(ctx.Str("sitting"))
 		}),
@@ -138,7 +138,7 @@ func registerSittings() {
 			{Name: "present", Kind: spec.StringList, Help: "Who attended (repeatable)."},
 			{Name: "excused", Kind: spec.StringList, Help: "Who was excused (repeatable)."}},
 		Effects:  []string{"Marks the sitting held and records the agenda order and attendance."},
-		Examples: []string{"ordo sitting hold RDIR-2026-10-08 --present Marie --present Paul --excused Anne --sphere pro"},
+		Examples: []string{"oj sitting hold RDIR-2026-10-08 --present Marie --present Paul --excused Anne --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.HoldSitting(ctx.Str("sitting"), ctx.List("present"), ctx.List("excused"))
 		}),
@@ -150,7 +150,7 @@ func registerSittings() {
 			"every other item on the agenda is deferred to the next planned sitting. Show the drafts to the user before approving.",
 		Params:   []spec.Param{sittingArg("Sitting id."), sphereParam()},
 		Effects:  []string{"Marks the sitting minuted.", "Approves its draft outcomes.", "Marks items done or defers them; moves remaining proposals to the next sitting."},
-		Examples: []string{"ordo sitting minute RDIR-2026-10-08 --sphere pro"},
+		Examples: []string{"oj sitting minute RDIR-2026-10-08 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.MinuteSitting(ctx.Str("sitting"))
 		}),

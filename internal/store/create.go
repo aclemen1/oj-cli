@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 type Created struct {
@@ -41,7 +41,7 @@ func (s *Store) CreateScheme(asked string) (string, error) {
 	l := s.CreateSchemes()
 	switch len(l) {
 	case 0:
-		return "", spec.UserError("no refs.<scheme>.create in the sphere's configuration: ordo cannot create a target")
+		return "", spec.UserError("no refs.<scheme>.create in the sphere's configuration: oj cannot create a target")
 	case 1:
 		return l[0], nil
 	}
@@ -140,7 +140,7 @@ func (s *Store) run(argv []string, vars map[string]string) (string, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = s.Root
-	cmd.Env = append(os.Environ(), "ORDO_SPHERE="+s.Sphere)
+	cmd.Env = append(os.Environ(), "OJ_SPHERE="+s.Sphere)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	b, err := cmd.Output()

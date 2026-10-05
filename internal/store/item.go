@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 type Item struct {
@@ -87,7 +87,7 @@ func (s *Store) Item(id string) (*Item, error) {
 	it := &Item{}
 	body, err := readDoc(s.itemPath(alias, full), it)
 	if os.IsNotExist(err) {
-		return nil, spec.NotFound("no item %s in sphere %s. Find it with `ordo item ls %s --sphere %s`", full, s.Sphere, alias, s.Sphere)
+		return nil, spec.NotFound("no item %s in sphere %s. Find it with `oj item ls %s --sphere %s`", full, s.Sphere, alias, s.Sphere)
 	}
 	if err != nil {
 		return nil, err
@@ -215,7 +215,7 @@ func (s *Store) target(m *Meeting, id string) (*Sitting, error) {
 	if sit.State != "planned" {
 		hint := ""
 		if sit.State == "frozen" {
-			hint = fmt.Sprintf("; reopen it first with `ordo sitting reopen %s`", sit.ID)
+			hint = fmt.Sprintf("; reopen it first with `oj sitting reopen %s`", sit.ID)
 		}
 		return nil, spec.Conflict("sitting %s is %s; items go only to a planned sitting%s", sit.ID, sit.State, hint)
 	}
@@ -230,7 +230,7 @@ func (s *Store) AddItem(alias string, in ItemInput, accept bool, sitting string)
 		return nil, err
 	}
 	if strings.TrimSpace(in.Title) == "" {
-		return nil, spec.UserError("item add needs a title. Example: ordo item add %s \"Budget 2027\" --sphere %s", m.Alias, s.Sphere)
+		return nil, spec.UserError("item add needs a title. Example: oj item add %s \"Budget 2027\" --sphere %s", m.Alias, s.Sphere)
 	}
 	if err := in.check(); err != nil {
 		return nil, err
@@ -422,7 +422,7 @@ func (s *Store) DeferItem(id, to string) (*Item, error) {
 // DropItem withdraws an item.
 func (s *Store) DropItem(id, reason string) (*Item, error) {
 	if strings.TrimSpace(reason) == "" {
-		return nil, spec.UserError("item drop needs --reason. Example: ordo item drop %s --reason \"settled by e-mail\"", strings.ToUpper(id))
+		return nil, spec.UserError("item drop needs --reason. Example: oj item drop %s --reason \"settled by e-mail\"", strings.ToUpper(id))
 	}
 	return s.changeItem(id, "item drop "+strings.ToUpper(id), func(it *Item, _ *Meeting) error {
 		if it.State == "done" || it.State == "dropped" {
@@ -480,7 +480,7 @@ func (s *Store) EditItem(id string, in ItemInput) (*Item, error) {
 			changed = append(changed, "refs")
 		}
 		if len(changed) == 0 {
-			return spec.UserError("item edit changes nothing. Example: ordo item edit %s --duration 20m", it.ID)
+			return spec.UserError("item edit changes nothing. Example: oj item edit %s --duration 20m", it.ID)
 		}
 		s.log(&it.Log, "edited "+strings.Join(dedupe(changed), ", "))
 		return nil
@@ -581,7 +581,7 @@ func (s *Store) SetOutcome(id, sitting string, in OutcomeInput) (*Item, error) {
 		in.By = s.By
 	}
 	if in.Summary == "" && in.Decision == "" && len(actions) == 0 {
-		return nil, spec.UserError("outcome set needs --summary, --decision or --action. Example: ordo outcome set %s --summary \"Presented; questions answered\"", strings.ToUpper(id))
+		return nil, spec.UserError("outcome set needs --summary, --decision or --action. Example: oj outcome set %s --summary \"Presented; questions answered\"", strings.ToUpper(id))
 	}
 	return s.changeItem(id, "outcome set "+strings.ToUpper(id), func(it *Item, _ *Meeting) error {
 		sid := it.Sitting

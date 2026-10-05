@@ -8,7 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
 
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func (m *model) View() tea.View {
@@ -44,7 +44,7 @@ func (m *model) render() string {
 	case m.status != "":
 		foot = sOK.Render(m.status)
 	}
-	head := sTitle.Render("ordo") + " " + sphereTag(m.st.Sphere)
+	head := sTitle.Render("oj") + " " + sphereTag(m.st.Sphere)
 	return pad(head, m.w) + "\n" + block(lines, m.w, m.h-2) + "\n" + pad(foot, m.w)
 }
 
@@ -58,7 +58,7 @@ func window(lines []string, sel, h int) []string {
 
 func (m *model) renderMeetings() []string {
 	if len(m.meetings) == 0 {
-		return []string{"", sMuted.Render("  No meeting yet. Create one: ordo meeting add RDIR --title … --sphere " + m.st.Sphere)}
+		return []string{"", sMuted.Render("  No meeting yet. Create one: oj meeting add RDIR --title … --sphere " + m.st.Sphere)}
 	}
 	var out []string
 	for i, r := range m.meetings {

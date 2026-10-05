@@ -41,7 +41,7 @@ func (s *Store) ShowRef(ref string) RefShown {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Dir = s.Root
-	cmd.Env = append(os.Environ(), "ORDO_SPHERE="+s.Sphere)
+	cmd.Env = append(os.Environ(), "OJ_SPHERE="+s.Sphere)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	b, err := cmd.Output()

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/calendar"
+	"github.com/aclemen1/oj-cli/internal/calendar"
 )
 
 func zurich(day, at string) time.Time {

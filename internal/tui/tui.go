@@ -1,4 +1,4 @@
-// Package tui is ordo's terminal interface (SPEC §11): meetings, the agenda
+// Package tui is oj's terminal interface (SPEC §11): meetings, the agenda
 // of a sitting, an item, the live sitting with a timer, and open actions.
 package tui
 
@@ -13,18 +13,18 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 
-	"github.com/aclemen1/ordo-cli/internal/actions"
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/actions"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func init() {
 	spec.Register(&spec.Action{
 		Category: "setup", Name: "tui", Top: true,
 		Summary:  "Open the terminal interface on a sphere: meetings, agenda, live sitting, actions.",
-		Params:   []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to $ORDO_SPHERE."}},
+		Params:   []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to $OJ_SPHERE."}},
 		Effects:  []string{"Runs until q; every change goes through the same store actions as the CLI."},
-		Examples: []string{"ordo tui --sphere pro"},
+		Examples: []string{"oj tui --sphere pro"},
 		Run: func(ctx *spec.Context) (any, error) {
 			st, err := actions.Open(ctx)
 			if err != nil {

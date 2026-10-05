@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/config"
 )
 
 // Events a hook can listen to.
@@ -23,7 +23,7 @@ var Events = []string{
 	"sitting.reopened", "sitting.unheld", "sitting.unminuted", "sitting.restored",
 }
 
-// MaxHookDepth stops a hook that calls ordo from starting hooks without end.
+// MaxHookDepth stops a hook that calls oj from starting hooks without end.
 const MaxHookDepth = 3
 
 type hookEvent struct {
@@ -59,9 +59,9 @@ func (s *Store) fire(events []hookEvent) {
 	if len(events) == 0 || len(s.Hooks) == 0 {
 		return
 	}
-	depth, _ := strconv.Atoi(os.Getenv("ORDO_HOOK_DEPTH"))
+	depth, _ := strconv.Atoi(os.Getenv("OJ_HOOK_DEPTH"))
 	if depth >= MaxHookDepth {
-		s.warn(fmt.Sprintf("hooks skipped: ORDO_HOOK_DEPTH is %d", depth))
+		s.warn(fmt.Sprintf("hooks skipped: OJ_HOOK_DEPTH is %d", depth))
 		return
 	}
 	for _, e := range events {
@@ -97,8 +97,8 @@ func (s *Store) runHook(h config.Hook, e hookEvent, depth int) error {
 	cmd := exec.CommandContext(ctx, h.Run[0], h.Run[1:]...)
 	cmd.Dir = s.Root
 	cmd.Stdin = bytes.NewReader(in)
-	cmd.Env = append(os.Environ(), "ORDO_SPHERE="+s.Sphere, "ORDO_EVENT="+e.name, "ORDO_MEETING="+e.meeting,
-		"ORDO_HOOK_DEPTH="+strconv.Itoa(depth))
+	cmd.Env = append(os.Environ(), "OJ_SPHERE="+s.Sphere, "OJ_EVENT="+e.name, "OJ_MEETING="+e.meeting,
+		"OJ_HOOK_DEPTH="+strconv.Itoa(depth))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	if err := cmd.Run(); err != nil {

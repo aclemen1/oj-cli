@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 // ActionRow is one action decided in a sitting, with where it comes from.
@@ -80,7 +80,7 @@ func (s *Store) SetActionDone(id, sitting string, n int, done bool) (*Item, erro
 			}
 		}
 		if e == nil || e.Outcome == nil || n < 1 || n > len(e.Outcome.Actions) {
-			return spec.NotFound("item %s has no action %d%s. List them with `ordo actions ls %s`", it.ID, n, inSitting(sitting), it.Meeting)
+			return spec.NotFound("item %s has no action %d%s. List them with `oj actions ls %s`", it.ID, n, inSitting(sitting), it.Meeting)
 		}
 		e.Outcome.Actions[n-1].Done = done
 		s.log(&it.Log, "action "+e.Sitting+"#"+strconv.Itoa(n)+" "+verb)

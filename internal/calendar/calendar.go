@@ -53,14 +53,14 @@ func (s Source) Events(ctx context.Context, from, to time.Time) ([]Event, error)
 	return nil, fmt.Errorf("calendar type %q: expected ics or command", s.Type)
 }
 
-// command runs the source's command with ORDO_FROM and ORDO_TO (RFC 3339)
+// command runs the source's command with OJ_FROM and OJ_TO (RFC 3339)
 // and reads a JSON list of events from its output.
 func (s Source) command(ctx context.Context, from, to time.Time) ([]Event, error) {
 	if len(s.Run) == 0 {
 		return nil, fmt.Errorf("calendar of type command needs run: [program, args…]")
 	}
 	cmd := exec.CommandContext(ctx, s.Run[0], s.Run[1:]...)
-	cmd.Env = append(os.Environ(), "ORDO_FROM="+from.Format(time.RFC3339), "ORDO_TO="+to.Format(time.RFC3339))
+	cmd.Env = append(os.Environ(), "OJ_FROM="+from.Format(time.RFC3339), "OJ_TO="+to.Format(time.RFC3339))
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()

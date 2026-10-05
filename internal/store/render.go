@@ -17,7 +17,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 //go:embed templates/*.tmpl
@@ -298,7 +298,7 @@ func (s *Store) RenderDoc(arg, kind, to, out string) (*Rendered, error) {
 		if err != nil {
 			return nil, err
 		}
-		dir := filepath.Join(os.TempDir(), "ordo", s.Sphere)
+		dir := filepath.Join(os.TempDir(), "oj", s.Sphere)
 		if err := os.MkdirAll(dir, 0o700); err != nil {
 			return nil, err
 		}

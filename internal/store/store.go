@@ -14,8 +14,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 type Store struct {
@@ -51,29 +51,29 @@ func Open(cfg *config.Config, sphere, by string) (*Store, error) {
 	s, ok := cfg.Spheres[sphere]
 	if !ok {
 		if len(cfg.Spheres) == 0 {
-			return nil, spec.UserError("no sphere is configured in %s. Example: ordo init --sphere pro --root ~/ordo/pro", cfg.File())
+			return nil, spec.UserError("no sphere is configured in %s. Example: oj init --sphere pro --root ~/oj/pro", cfg.File())
 		}
 		return nil, spec.UserError("unknown sphere %q; configured: %s. Example: --sphere %s", sphere, strings.Join(cfg.Names(), ", "), cfg.Names()[0])
 	}
-	if _, err := os.Stat(filepath.Join(s.Root, ".ordo")); err != nil {
-		return nil, spec.UserError("sphere %q has no store at %s. Example: ordo init --sphere %s --root %s", sphere, s.Root, sphere, s.Root)
+	if _, err := os.Stat(filepath.Join(s.Root, ".oj")); err != nil {
+		return nil, spec.UserError("sphere %q has no store at %s. Example: oj init --sphere %s --root %s", sphere, s.Root, sphere, s.Root)
 	}
 	if by == "" {
 		by = "user"
 	}
 	return &Store{Sphere: sphere, Root: s.Root, VCS: s.VCS, By: by, Now: time.Now,
-		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "ordo: warning: "+m) },
+		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "oj: warning: "+m) },
 		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks, Refs: s.Refs}, nil
 }
 
 // Init creates the store directory and, with a VCS, its repository.
 func Init(root, vcs string) error {
-	if err := os.MkdirAll(filepath.Join(root, ".ordo"), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Join(root, ".oj"), 0o755); err != nil {
 		return err
 	}
 	ignore := filepath.Join(root, ".gitignore")
 	if _, err := os.Stat(ignore); os.IsNotExist(err) {
-		if err := os.WriteFile(ignore, []byte(".ordo/\n"), 0o644); err != nil {
+		if err := os.WriteFile(ignore, []byte(".oj/\n"), 0o644); err != nil {
 			return err
 		}
 	}
@@ -108,7 +108,7 @@ func (s *Store) Write(msg string, fn func() error) error {
 
 // writeAs is Write with a commit message known only once fn has run. The
 // events fn emits run their hooks after the commit, once the lock is released:
-// a hook may call ordo again.
+// a hook may call oj again.
 func (s *Store) writeAs(fn func() (string, error)) error {
 	events, err := s.locked(fn)
 	if err != nil {
@@ -119,7 +119,7 @@ func (s *Store) writeAs(fn func() (string, error)) error {
 }
 
 func (s *Store) locked(fn func() (string, error)) ([]hookEvent, error) {
-	f, err := os.OpenFile(filepath.Join(s.Root, ".ordo", "lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	f, err := os.OpenFile(filepath.Join(s.Root, ".oj", "lock"), os.O_CREATE|os.O_RDWR, 0o644)
 	if err != nil {
 		return nil, err
 	}

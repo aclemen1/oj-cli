@@ -1,36 +1,36 @@
-# ordo — specification
+# oj — specification
 
 Draft 0.1, 5 October 2026. Nothing is implemented yet.
 
-`ordo` keeps the agenda of meetings. A **meeting** is a recurring or one-off
+`oj` keeps the agenda of meetings. A **meeting** is a recurring or one-off
 body (a board, a steering committee, a weekly team review). Each date it meets
 is a **sitting**. People and agents propose **items**; the chair accepts,
 orders and times them; the sitting deals with them; what comes out of each
 item (a summary, a decision, actions) becomes the **minutes**. An item that is
 not dealt with moves to the next sitting on its own.
 
-`ordo` is the record of items and their state. It does not hold the
+`oj` is the record of items and their state. It does not hold the
 discussion around an item, the files, or the memory of decisions: other tools
 do (a dossier manager, an artefact store, a memory). It reaches them through
 hooks and identifiers, never by reading their data.
 
 ## 1. Principles
 
-1. **One record of items.** An item has one home: its meeting in `ordo`. Other
-   tools point at it; `ordo` points back at where the item came from.
+1. **One record of items.** An item has one home: its meeting in `oj`. Other
+   tools point at it; `oj` points back at where the item came from.
 2. **Items survive sittings.** An item keeps its id when it is deferred. Its
    history across sittings stays in one place.
 3. **Plain files.** A store is a directory of Markdown files with YAML
-   frontmatter. It is readable, diffable and versionable without `ordo`.
+   frontmatter. It is readable, diffable and versionable without `oj`.
 4. **Spheres do not meet.** Each sphere has its own root. No action, search
    or hook crosses spheres.
-5. **Agnostic.** `ordo` knows no particular calendar, dossier manager, memory
+5. **Agnostic.** `oj` knows no particular calendar, dossier manager, memory
    or artefact store. It reads dates from a calendar provider and announces
    changes through hooks.
-6. **Nothing leaves without the user.** `ordo` sends no e-mail and no
+6. **Nothing leaves without the user.** `oj` sends no e-mail and no
    invitation. It renders documents; a human or a hook decides where they go.
-7. **AI-native CLI.** `ordo` follows `aclemen1/ai-native-cli`: single Go
-   binary, embedded skill, `ordo schema`, JSON envelope `{ok, result|error}`,
+7. **AI-native CLI.** `oj` follows `aclemen1/ai-native-cli`: single Go
+   binary, embedded skill, `oj schema`, JSON envelope `{ok, result|error}`,
    `--format json|text`. The same actions are served over MCP.
 
 ## 2. Overview
@@ -39,7 +39,7 @@ hooks and identifiers, never by reading their data.
  human · agent · tool (office, routine, …)
         │ CLI · MCP
         ▼
- ┌──────────────────── ordo (Go binary) ─────────────────────┐
+ ┌──────────────────── oj (Go binary) ─────────────────────┐
  │ actions: meeting · sitting · item · outcome · render …    │
  │                                                           │
  │ store (Markdown + YAML, per sphere) · index (rebuildable) │
@@ -152,7 +152,7 @@ unapproved.
 | item | alias + counter | `RDIR-17` |
 | outcome | item + sitting | `RDIR-17@RDIR-2026-10-08` |
 
-Other tools cite `ordo://<sphere>/<id>`. Ids never change and are never
+Other tools cite `oj://<sphere>/<id>`. Ids never change and are never
 reused, even after a drop.
 
 ## 4. Storage
@@ -162,9 +162,9 @@ reused, even after a drop.
 One root per sphere, declared in the configuration:
 
 ```
-~/ordo/
+~/oj/
   pro/
-    .ordo/            index.sqlite (rebuildable), counters, lock
+    .oj/            index.sqlite (rebuildable), counters, lock
     RDIR/
       meeting.md      frontmatter: §3.1 ; body: free notes
       items/
@@ -185,13 +185,13 @@ One root per sphere, declared in the configuration:
   picked up at the next action. An index (SQLite) may come later as a cache
   for large stores; it would never be the source.
 - A sphere declares `vcs: jj | git | none` (default `jj`). With a VCS,
-  `ordo` commits after each write action, message `<action> <id>`
+  `oj` commits after each write action, message `<action> <id>`
   (`item defer RDIR-17`), so the history of a meeting is read with the VCS.
-  `ordo init` creates the repository when absent.
+  `oj init` creates the repository when absent.
 
 ### 4.2 Sittings from the RRULE
 
-`ordo` creates the files of the next sittings lazily: when an action needs
+`oj` creates the files of the next sittings lazily: when an action needs
 "the next sitting" or when `sitting ls` looks ahead (default: next 3). Past
 sittings never appear on their own: a sitting that was not created is a
 sitting that did not happen.
@@ -223,7 +223,7 @@ sitting that did not happen.
 | `actions ls [<alias>] [--who] [--state open\|done\|all] [--due-before]` | actions across sittings of a meeting or the sphere, open first by due date |
 | `actions done <item> <n> [--sitting] [--undo]` | marks action n of an outcome done, or open again; rewriting the outcome keeps it |
 
-Every action takes `--sphere` (or `ORDO_SPHERE`) and returns the envelope.
+Every action takes `--sphere` (or `OJ_SPHERE`) and returns the envelope.
 Errors name the canonical invocation, echo the offending values and show an
 example.
 
@@ -231,20 +231,20 @@ example.
 
 | Command | Role |
 |---|---|
-| `ordo init --sphere <name> --root <dir>` | declares a sphere |
-| `ordo import gtasks …` | one-off import (§10) |
-| `ordo reindex`, `ordo doctor` | upkeep; doctor checks calendars, hooks, renderer |
-| `ordo mcp [--spheres pro]` | MCP over stdio, limited to the spheres given |
-| `ordo tui` | terminal interface (§11) |
-| `ordo schema`, `ordo skill show\|install`, `ordo version` | AI-native CLI |
+| `oj init --sphere <name> --root <dir>` | declares a sphere |
+| `oj import gtasks …` | one-off import (§10) |
+| `oj reindex`, `oj doctor` | upkeep; doctor checks calendars, hooks, renderer |
+| `oj mcp [--spheres pro]` | MCP over stdio, limited to the spheres given |
+| `oj tui` | terminal interface (§11) |
+| `oj schema`, `oj skill show\|install`, `oj version` | AI-native CLI |
 
 ### 5.3 Surfaces
 
 The actions are defined once (action specs) and served as CLI commands and as
 MCP tools (one tool per action, named `<category>_<action>`: `item_add`).
-Sittings and items are also MCP resources `ordo://<sphere>/<id>`.
+Sittings and items are also MCP resources `oj://<sphere>/<id>`.
 
-- `ordo mcp --spheres <list>` serves only those spheres; with one sphere,
+- `oj mcp --spheres <list>` serves only those spheres; with one sphere,
   `sphere` defaults to it.
 - Everything done through MCP is logged as `agent:…`, and an outcome set
   through MCP is always a draft: a `by` without the `agent:` prefix gets it.
@@ -252,24 +252,24 @@ Sittings and items are also MCP resources `ordo://<sphere>/<id>`.
 ## 6. Dates and calendars
 
 The RRULE of a meeting says when it meets. The calendar says when it really
-meets: a sitting moved in the calendar is moved in `ordo`.
+meets: a sitting moved in the calendar is moved in `oj`.
 
 - A meeting's `calendar` names a provider and a match rule (event title
   pattern, or the event's recurring id).
 - Sources are named under `calendars:` in the configuration: `ics` (`path`
   or `url`; recurring events expanded, EXDATE and RECURRENCE-ID applied) and
-  `command` (`run: [program, args…]`, called with `ORDO_FROM` and `ORDO_TO`
+  `command` (`run: [program, args…]`, called with `OJ_FROM` and `OJ_TO`
   in RFC 3339, printing `[{uid, start, end, title, location, status,
   recurring_id, original_start}]`). The command lets a user plug a CLI such
-  as `gws` without `ordo` knowing it.
-- `ordo meeting calendar <alias> --source <name> --match <regex>
+  as `gws` without `oj` knowing it.
+- `oj meeting calendar <alias> --source <name> --match <regex>
   [--recurring-id <id>]` links a meeting to its events.
-- `ordo sitting sync [<alias>] [--days 90]` reads the events and reconciles.
+- `oj sitting sync [<alias>] [--days 90]` reads the events and reconciles.
   It is explicit, not run at every read: a routine runs it on a schedule.
   An event finds its sitting by the uid recorded on it, then by its
   `original_start`, then by its start date.
 
-| Calendar | `ordo` |
+| Calendar | `oj` |
 |---|---|
 | event on an RRULE date | sitting keeps its id; takes the event's time and place when they differ |
 | event moved to another day | the sitting moves; its id keeps the original date |
@@ -283,14 +283,14 @@ meets: a sitting moved in the calendar is moved in `ordo`.
 
 ## 7. Hooks
 
-`ordo` announces events to commands named in the sphere's configuration. A
+`oj` announces events to commands named in the sphere's configuration. A
 hook receives the event as JSON on standard input — `event`, `sphere`,
-`meeting`, `at`, `by` and the payload — with `ORDO_SPHERE`, `ORDO_EVENT`,
-`ORDO_MEETING` and `ORDO_HOOK_DEPTH` in its environment, in the store's
+`meeting`, `at`, `by` and the payload — with `OJ_SPHERE`, `OJ_EVENT`,
+`OJ_MEETING` and `OJ_HOOK_DEPTH` in its environment, in the store's
 directory, with a timeout (30 s by default).
 
 - Hooks run after the commit, once the lock is released, so a hook may call
-  `ordo` again. A hook started from a hook has a greater depth; at depth 3
+  `oj` again. A hook started from a hook has a greater depth; at depth 3
   hooks are skipped.
 - A failing hook never undoes the action: the action succeeds and the
   failure comes back in `warnings` of the envelope (stderr in text).
@@ -314,7 +314,7 @@ spheres:
     hooks:
       - on: [outcome.set, item.deferred]
         meetings: [RDIR, OPS]
-        run: ["office-notify-from-ordo"]
+        run: ["office-notify-from-oj"]
         timeout: 20s
 ```
 
@@ -325,7 +325,7 @@ spheres:
   document. Built-in templates exist in English and French (`lang` of the
   meeting, then of the sphere, then `en`); a sphere can name its own
   templates (`render.templates.agenda`, `.minutes`).
-- `md` and `html` are rendered by `ordo` itself. `docx` and `pdf` go through
+- `md` and `html` are rendered by `oj` itself. `docx` and `pdf` go through
   pandoc (`render.reference_doc` of the sphere for docx, `pdf_engine` for
   PDF, default xelatex).
 - `freeze` writes `rendered/<date>-agenda-vN.md` (`v2` after a reopen) and
@@ -338,13 +338,13 @@ spheres:
 
 ## 9. Spheres and access
 
-- A sphere is a root and a name. `--sphere` (or `ORDO_SPHERE`) is required by
+- A sphere is a root and a name. `--sphere` (or `OJ_SPHERE`) is required by
   every action; there is no default sphere in the configuration.
-- `ordo mcp --spheres <list>` serves only those spheres; a call naming
+- `oj mcp --spheres <list>` serves only those spheres; a call naming
   another sphere fails.
 - Hooks run with the sphere of the event; a hook configured for one sphere is
   never run for another.
-- `ordo://` references and `refs` are kept as text; `ordo` never follows a
+- `oj://` references and `refs` are kept as text; `oj` never follows a
   reference into another sphere.
 
 ## 10. Import from Google Tasks
@@ -352,11 +352,11 @@ spheres:
 A one-off import, for users who kept one task list per meeting.
 
 ```
-ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
+oj import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 ```
 
 - Input: the JSON a task CLI prints for one list (`title`, `notes`, `due`,
-  `status`, `links`). `ordo` does not call Google itself.
+  `status`, `links`). `oj` does not call Google itself.
 - Each open task becomes a `proposed` item; title and notes are kept; a link
   to an e-mail becomes a `ref`; completed tasks are skipped unless
   `--with-completed`.
@@ -364,7 +364,7 @@ ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 
 ## 11. TUI
 
-`ordo tui`, Bubble Tea v2, keys aligned with the TUIs of `office` and
+`oj tui`, Bubble Tea v2, keys aligned with the TUIs of `office` and
 `routine`.
 
 | View | Shows | Actions |
@@ -377,20 +377,20 @@ ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 
 ## 12. Configuration
 
-`~/.config/ordo/config.yaml`:
+`~/.config/oj/config.yaml`:
 
 ```yaml
 spheres:
-  perso: { root: ~/ordo/perso, vcs: jj }
+  perso: { root: ~/oj/perso, vcs: jj }
   pro:
-    root: ~/ordo/pro
+    root: ~/oj/pro
     vcs: jj
     render:
       lang: fr
       reference_doc: ~/templates/house-style.docx
     hooks:
       - on: [outcome.set, item.deferred]
-        run: ["office-notify-from-ordo"]
+        run: ["office-notify-from-oj"]
     refs:
       office:
         show: ["office", "show", "{id}", "--format", "text"]
@@ -408,7 +408,7 @@ Hooks belong to a sphere, so a hook of one sphere never sees another.
 `refs` say how to summarise the target of an item's ref, by scheme: for
 `office:U-0042`, `{id}` becomes `U-0042`. The TUI shows that text for the
 selected item, rendered as Markdown and refreshed after a minute (item
-notes are rendered as Markdown too), and `ordo item show --with-refs`
+notes are rendered as Markdown too), and `oj item show --with-refs`
 returns it to agents. Refs of a scheme with no command stay plain text.
 
 A scheme can also say how to create a target for an item (`create`, which
@@ -428,7 +428,7 @@ A meeting's own settings live in its `meeting.md`.
 2. **Render**: Markdown and HTML agenda and minutes, templates, pandoc.
    (Written 5 October 2026: built-in templates in English and French,
    `lang` per meeting or sphere.)
-3. **MCP**: `ordo mcp`, resources. (Written 5 October 2026.)
+3. **MCP**: `oj mcp`, resources. (Written 5 October 2026.)
 4. **Calendars**: `ics` and `command` providers, reconciliation, `sync`.
    (Written 5 October 2026.)
 5. **Hooks**. (Written 5 October 2026.)

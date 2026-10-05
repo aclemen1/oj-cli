@@ -5,8 +5,8 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func init() {
@@ -20,7 +20,7 @@ func init() {
 			{Name: "state", Kind: spec.String, Default: "open", Enum: []string{"open", "done", "all"}, Help: "Keep open, done or all actions."},
 			{Name: "due-before", Kind: spec.String, Help: "Keep the actions due before this date, YYYY-MM-DD."},
 		},
-		Examples: []string{"ordo actions ls RDIR --sphere pro", "ordo actions ls --who Marie --due-before 2026-11-01 --sphere pro"},
+		Examples: []string{"oj actions ls RDIR --sphere pro", "oj actions ls --who Marie --due-before 2026-11-01 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.Actions(store.ActionFilter{Meeting: ctx.Str("meeting"), Who: ctx.Str("who"), State: ctx.Str("state"), DueBefore: ctx.Str("due-before")})
 		}),
@@ -39,17 +39,17 @@ func init() {
 		Summary: "Mark an action of an item's outcome done, or open again with --undo.",
 		Params: []spec.Param{
 			{Name: "id", Kind: spec.String, Positional: true, Required: true, Help: "Item id, e.g. RDIR-17."},
-			{Name: "n", Kind: spec.String, Positional: true, Required: true, Help: "Number of the action, from 1, as `ordo actions ls` shows it."},
+			{Name: "n", Kind: spec.String, Positional: true, Required: true, Help: "Number of the action, from 1, as `oj actions ls` shows it."},
 			sphereParam(),
 			{Name: "sitting", Kind: spec.String, Help: "Sitting of the outcome. Defaults to the latest outcome with actions."},
 			{Name: "undo", Kind: spec.Bool, Help: "Mark the action open again."},
 		},
 		Effects:  []string{"Rewrites the item with the action marked done or open."},
-		Examples: []string{"ordo actions done RDIR-17 1 --sphere pro", "ordo actions done RDIR-17 1 --undo --sphere pro"},
+		Examples: []string{"oj actions done RDIR-17 1 --sphere pro", "oj actions done RDIR-17 1 --undo --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			n, err := strconv.Atoi(ctx.Str("n"))
 			if err != nil {
-				return nil, spec.UserError("<n> takes a number, got %q. Example: ordo actions done RDIR-17 1", ctx.Str("n"))
+				return nil, spec.UserError("<n> takes a number, got %q. Example: oj actions done RDIR-17 1", ctx.Str("n"))
 			}
 			return st.SetActionDone(ctx.Str("id"), ctx.Str("sitting"), n, !ctx.Bool("undo"))
 		}),

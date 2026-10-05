@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/actions"
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/actions"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 type cli struct {
@@ -22,8 +22,8 @@ func newCLI(t *testing.T) *cli {
 	dir := t.TempDir()
 	actions.SetClock(func() time.Time { return time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC) })
 	t.Cleanup(func() { actions.SetClock(nil) })
-	t.Setenv("ORDO_SPHERE", "")
-	t.Setenv("ORDO_BY", "")
+	t.Setenv("OJ_SPHERE", "")
+	t.Setenv("OJ_BY", "")
 	c := &cli{t: t, config: filepath.Join(dir, "config.yaml")}
 	c.ok("init", "--sphere", "pro", "--root", filepath.Join(dir, "pro"), "--vcs", "none")
 	return c
@@ -41,7 +41,7 @@ func (c *cli) ok(args ...string) map[string]any {
 	c.t.Helper()
 	code, env, raw := c.run(args...)
 	if code != 0 || env["ok"] != true {
-		c.t.Fatalf("ordo %s: exit %d: %s", strings.Join(args, " "), code, raw)
+		c.t.Fatalf("oj %s: exit %d: %s", strings.Join(args, " "), code, raw)
 	}
 	r, _ := env["result"].(map[string]any)
 	return r
@@ -55,7 +55,7 @@ func TestCLICycle(t *testing.T) {
 	if it["id"] != "RDIR-1" || it["sitting"] != "RDIR-2026-10-08" {
 		t.Fatalf("item %v", it)
 	}
-	t.Setenv("ORDO_SPHERE", "pro")
+	t.Setenv("OJ_SPHERE", "pro")
 	c.ok("sitting", "freeze", "RDIR")
 	c.ok("sitting", "hold", "RDIR-2026-10-08", "--present", "Marie")
 	c.ok("outcome", "set", "RDIR-1", "--decision", "Approuvé", "--by", "agent:claude")
@@ -76,7 +76,7 @@ func TestCLIErrors(t *testing.T) {
 		t.Fatalf("missing sphere: %d %v", code, env)
 	}
 	code, _, raw = c.run("item", "add", "RDIR", "x", "--sphere", "pro")
-	if code != spec.ExitNotFound || !strings.Contains(raw, "ordo meeting ls") {
+	if code != spec.ExitNotFound || !strings.Contains(raw, "oj meeting ls") {
 		t.Fatalf("unknown meeting: %d %s", code, raw)
 	}
 	code, _, raw = c.run("item", "add", "RDIR", "x", "--kind", "vote", "--sphere", "pro")
@@ -84,7 +84,7 @@ func TestCLIErrors(t *testing.T) {
 		t.Fatalf("bad enum: %d %s", code, raw)
 	}
 	code, _, raw = c.run("item", "frobnicate")
-	if code != spec.ExitUsage || !strings.Contains(raw, "ordo schema item") {
+	if code != spec.ExitUsage || !strings.Contains(raw, "oj schema item") {
 		t.Fatalf("unknown action: %d %s", code, raw)
 	}
 	code, _, raw = c.run("sitting", "ls", "--sphere", "perso")
@@ -119,7 +119,7 @@ func TestCLISchemaAndSkill(t *testing.T) {
 		t.Fatalf("leaf %v", leaf)
 	}
 	_, _, skill := c.run("skill", "show")
-	if lines := strings.Count(skill, "\n"); lines > 50 || !strings.Contains(skill, "ordo schema") {
+	if lines := strings.Count(skill, "\n"); lines > 50 || !strings.Contains(skill, "oj schema") {
 		t.Fatalf("skill: %d lines", lines)
 	}
 	for _, a := range spec.All() {

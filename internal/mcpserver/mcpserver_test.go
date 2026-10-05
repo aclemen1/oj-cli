@@ -10,9 +10,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/aclemen1/ordo-cli/internal/actions"
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/actions"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func connect(t *testing.T, spheres ...string) (*mcp.ClientSession, string) {
@@ -31,7 +31,7 @@ func connect(t *testing.T, spheres ...string) (*mcp.ClientSession, string) {
 	}
 	actions.SetClock(func() time.Time { return time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC) })
 	t.Cleanup(func() { actions.SetClock(nil) })
-	t.Setenv("ORDO_BY", "")
+	t.Setenv("OJ_BY", "")
 	ctx := context.Background()
 	st, ct := mcp.NewInMemoryTransports()
 	if _, err := New(cfgPath, spheres).Connect(ctx, st, nil); err != nil {
@@ -119,7 +119,7 @@ func TestSpheresAreSealed(t *testing.T) {
 	if ok || (e["kind"] != "user_error" && e["kind"] != "forbidden") {
 		t.Fatalf("perso through a pro server: %v", e)
 	}
-	if _, err := cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "ordo://perso/RDIR-1"}); err == nil {
+	if _, err := cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "oj://perso/RDIR-1"}); err == nil {
 		t.Fatal("a perso resource through a pro server")
 	}
 }
@@ -128,7 +128,7 @@ func TestResource(t *testing.T) {
 	cs, _ := connect(t, "pro")
 	callTool(t, cs, "meeting_add", map[string]any{"alias": "RDIR", "title": "Séance", "rrule": "FREQ=WEEKLY;BYDAY=TH", "start": "2026-10-01T09:00", "tz": "Europe/Zurich"})
 	callTool(t, cs, "item_add", map[string]any{"meeting": "RDIR", "title": "Budget", "accept": true})
-	res, err := cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "ordo://pro/RDIR-2026-10-08"})
+	res, err := cs.ReadResource(context.Background(), &mcp.ReadResourceParams{URI: "oj://pro/RDIR-2026-10-08"})
 	if err != nil {
 		t.Fatal(err)
 	}

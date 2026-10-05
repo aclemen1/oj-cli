@@ -4,9 +4,9 @@ import (
 	"io"
 	"os"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func init() {
@@ -14,7 +14,7 @@ func init() {
 		Category: "import", Name: "gtasks",
 		Summary: "Turn the open tasks of a Google Tasks list into proposed items of a meeting.",
 		Discussion: "Input: the JSON a task CLI prints for one list, {\"items\": [...]} or [...], e.g. " +
-			"`gws tasks tasks list --params '{\"tasklist\": \"<id>\"}'`. ordo does not call Google itself. " +
+			"`gws tasks tasks list --params '{\"tasklist\": \"<id>\"}'`. oj does not call Google itself. " +
 			"Each item keeps gtasks:<id> as a ref, and gmail:message/<id> for a task made from an e-mail; " +
 			"a task already imported is skipped, so the import can be run again.",
 		Params: []spec.Param{
@@ -26,7 +26,7 @@ func init() {
 			{Name: "dry-run", Kind: spec.Bool, Help: "Show the items without writing them."},
 		},
 		Effects:  []string{"Writes one item per open task, for the next planned sitting, in one commit."},
-		Examples: []string{"ordo import gtasks RDIR --from rdir-tasks.json --dry-run --sphere pro", "ordo import gtasks RDIR --from - --sphere pro"},
+		Examples: []string{"oj import gtasks RDIR --from rdir-tasks.json --dry-run --sphere pro", "oj import gtasks RDIR --from - --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			var b []byte
 			var err error

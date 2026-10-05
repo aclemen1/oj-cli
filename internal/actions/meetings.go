@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 type meetingSummary struct {
@@ -48,15 +48,15 @@ func registerMeetings() {
 		Category: "meeting", Name: "add",
 		Summary: "Create a meeting, recurring or one-off.",
 		Discussion: "A recurring meeting has --rrule and --start; its sittings follow the recurrence. " +
-			"A one-off meeting has neither; add its sittings with `ordo sitting add`.",
+			"A one-off meeting has neither; add its sittings with `oj sitting add`.",
 		Params: append([]spec.Param{
 			{Name: "alias", Kind: spec.String, Positional: true, Required: true, Help: "Short upper-case name, unique in the sphere, e.g. RDIR."},
 			sphereParam(),
 		}, meetingFields()...),
 		Effects: []string{"Creates the meeting's directory and meeting.md in the sphere's store."},
 		Examples: []string{
-			`ordo meeting add RDIR --title "Séance de direction" --rrule "FREQ=WEEKLY;BYDAY=TH" --start 2026-10-08T09:00 --duration 90m --sphere pro`,
-			`ordo meeting add RETRAITE --title "Retraite annuelle" --sphere pro`,
+			`oj meeting add RDIR --title "Séance de direction" --rrule "FREQ=WEEKLY;BYDAY=TH" --start 2026-10-08T09:00 --duration 90m --sphere pro`,
+			`oj meeting add RETRAITE --title "Retraite annuelle" --sphere pro`,
 		},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.AddMeeting(ctx.Str("alias"), meetingInput(ctx))
@@ -67,7 +67,7 @@ func registerMeetings() {
 		Summary:  "Change fields of a meeting.",
 		Params:   append([]spec.Param{{Name: "alias", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias."}, sphereParam()}, meetingFields()...),
 		Effects:  []string{"Rewrites meeting.md and logs the fields changed. Sittings already written keep their date."},
-		Examples: []string{"ordo meeting edit RDIR --duration 2h --sphere pro", `ordo meeting edit RDIR --rrule "FREQ=WEEKLY;BYDAY=WE" --sphere pro`},
+		Examples: []string{"oj meeting edit RDIR --duration 2h --sphere pro", `oj meeting edit RDIR --rrule "FREQ=WEEKLY;BYDAY=WE" --sphere pro`},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.EditMeeting(ctx.Str("alias"), meetingInput(ctx))
 		}),
@@ -76,7 +76,7 @@ func registerMeetings() {
 		Category: "meeting", Name: "show",
 		Summary:  "Show a meeting: recurrence, members, defaults, log.",
 		Params:   []spec.Param{{Name: "alias", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias."}, sphereParam()},
-		Examples: []string{"ordo meeting show RDIR --sphere pro"},
+		Examples: []string{"oj meeting show RDIR --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			return st.Meeting(ctx.Str("alias"))
 		}),
@@ -85,7 +85,7 @@ func registerMeetings() {
 		Category: "meeting", Name: "ls",
 		Summary:  "List the meetings of a sphere with their next sitting.",
 		Params:   []spec.Param{sphereParam()},
-		Examples: []string{"ordo meeting ls --sphere pro"},
+		Examples: []string{"oj meeting ls --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			ms, err := st.Meetings()
 			if err != nil {

@@ -8,29 +8,29 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/config"
 )
 
 // TestMain lets the test binary act as a hook: it records the event and
 // whether the store's lock is free while the hook runs.
 func TestMain(m *testing.M) {
-	if out := os.Getenv("ORDO_TEST_HOOK_OUT"); out != "" {
+	if out := os.Getenv("OJ_TEST_HOOK_OUT"); out != "" {
 		var ev map[string]any
 		json.NewDecoder(os.Stdin).Decode(&ev)
 		lock := "free"
-		if f, err := os.OpenFile(filepath.Join(os.Getenv("ORDO_TEST_ROOT"), ".ordo", "lock"), os.O_RDWR, 0); err == nil {
+		if f, err := os.OpenFile(filepath.Join(os.Getenv("OJ_TEST_ROOT"), ".oj", "lock"), os.O_RDWR, 0); err == nil {
 			if syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB) != nil {
 				lock = "held"
 			}
 			f.Close()
 		}
 		ev["lock"] = lock
-		ev["depth"] = os.Getenv("ORDO_HOOK_DEPTH")
+		ev["depth"] = os.Getenv("OJ_HOOK_DEPTH")
 		b, _ := json.Marshal(ev)
 		f, _ := os.OpenFile(out, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 		f.Write(append(b, '\n'))
 		f.Close()
-		if os.Getenv("ORDO_EVENT") == "item.dropped" {
+		if os.Getenv("OJ_EVENT") == "item.dropped" {
 			os.Stderr.WriteString("refused")
 			os.Exit(2)
 		}
@@ -60,12 +60,12 @@ func TestHooks(t *testing.T) {
 	s := withRDIR(t)
 	must[*Meeting](t)(s.AddMeeting("OPS", MeetingInput{Title: "Autre"}))
 	out := filepath.Join(t.TempDir(), "events.jsonl")
-	t.Setenv("ORDO_TEST_HOOK_OUT", "")
+	t.Setenv("OJ_TEST_HOOK_OUT", "")
 	exe, _ := os.Executable()
 	var warns []string
 	s.Warn = func(m string) { warns = append(warns, m) }
 	s.Hooks = []config.Hook{
-		{On: []string{"*"}, Meetings: []string{"RDIR"}, Run: []string{"env", "ORDO_TEST_HOOK_OUT=" + out, "ORDO_TEST_ROOT=" + s.Root, exe}},
+		{On: []string{"*"}, Meetings: []string{"RDIR"}, Run: []string{"env", "OJ_TEST_HOOK_OUT=" + out, "OJ_TEST_ROOT=" + s.Root, exe}},
 	}
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget"}, false, ""))
 	must[*Item](t)(s.AddItem("OPS", ItemInput{Title: "Ailleurs"}, false, ""))
@@ -107,7 +107,7 @@ func TestHooks(t *testing.T) {
 		t.Fatalf("last event %v", last[len(last)-1]["event"])
 	}
 	// Too deep: hooks are skipped.
-	t.Setenv("ORDO_HOOK_DEPTH", "3")
+	t.Setenv("OJ_HOOK_DEPTH", "3")
 	n := len(recorded(t, out))
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Profond"}, false, ""))
 	if len(recorded(t, out)) != n || !strings.Contains(warns[len(warns)-1], "skipped") {
@@ -120,7 +120,7 @@ func TestHookEventsOfSittings(t *testing.T) {
 	out := filepath.Join(t.TempDir(), "events.jsonl")
 	exe, _ := os.Executable()
 	s.Hooks = []config.Hook{{On: []string{"sitting.frozen", "sitting.minuted", "item.deferred", "item.moved", "sitting.cancelled"},
-		Run: []string{"env", "ORDO_TEST_HOOK_OUT=" + out, "ORDO_TEST_ROOT=" + s.Root, exe}}}
+		Run: []string{"env", "OJ_TEST_HOOK_OUT=" + out, "OJ_TEST_ROOT=" + s.Root, exe}}}
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "A"}, true, ""))
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "B"}, true, ""))
 	must[*Changed](t)(s.FreezeSitting("RDIR", false))

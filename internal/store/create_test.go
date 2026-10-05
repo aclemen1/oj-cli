@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/config"
 )
 
 func TestCreateRef(t *testing.T) {

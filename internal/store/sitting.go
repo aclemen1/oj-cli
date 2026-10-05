@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 type Sitting struct {
@@ -65,7 +65,7 @@ func (s *Store) Sitting(id string) (*Sitting, *Meeting, error) {
 			return virtualSitting(m, o), m, nil
 		}
 	}
-	return nil, nil, spec.NotFound("no sitting %s. List them with `ordo sitting ls %s --sphere %s`", alias+"-"+key, alias, s.Sphere)
+	return nil, nil, spec.NotFound("no sitting %s. List them with `oj sitting ls %s --sphere %s`", alias+"-"+key, alias, s.Sphere)
 }
 
 func (s *Store) saveSitting(sit *Sitting) error {
@@ -218,7 +218,7 @@ func (s *Store) Resolve(arg string) (*Sitting, *Meeting, error) {
 		return nil, nil, err
 	}
 	if sit == nil {
-		return nil, nil, spec.NotFound("meeting %s has no upcoming sitting. Add one: ordo sitting add %s --date YYYY-MM-DD --sphere %s", m.Alias, m.Alias, s.Sphere)
+		return nil, nil, spec.NotFound("meeting %s has no upcoming sitting. Add one: oj sitting add %s --date YYYY-MM-DD --sphere %s", m.Alias, m.Alias, s.Sphere)
 	}
 	return sit, m, nil
 }
@@ -393,7 +393,7 @@ func (s *Store) MoveSitting(id, date, at string) (*Sitting, error) {
 		return nil, err
 	}
 	if date == "" && at == "" {
-		return nil, spec.UserError("sitting move needs --date or --time. Example: ordo sitting move %s --date 2026-10-09", strings.ToUpper(id))
+		return nil, spec.UserError("sitting move needs --date or --time. Example: oj sitting move %s --date 2026-10-09", strings.ToUpper(id))
 	}
 	return s.change(id, "sitting move", func(sit *Sitting, _ *Meeting) error {
 		if err := requireState(sit, "move", "planned", "frozen"); err != nil {
@@ -489,7 +489,7 @@ func (s *Store) FreezeSitting(id string, leaveProposed bool) (*Changed, error) {
 				ids = append(ids, it.ID)
 			}
 			if !leaveProposed {
-				return spec.Conflict("sitting %s still has proposed items: %s. Accept them (ordo item accept %s) or pass --leave-proposed to move them to the next sitting",
+				return spec.Conflict("sitting %s still has proposed items: %s. Accept them (oj item accept %s) or pass --leave-proposed to move them to the next sitting",
 					sit.ID, strings.Join(ids, ", "), strings.Join(ids, " "))
 			}
 			if out.Moved, err = s.moveOn(m, sit, "proposed"); err != nil {

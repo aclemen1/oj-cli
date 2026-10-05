@@ -10,8 +10,8 @@ import (
 
 	"github.com/teambition/rrule-go"
 
-	"github.com/aclemen1/ordo-cli/internal/calendar"
-	"github.com/aclemen1/ordo-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/calendar"
+	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
 // CalLink says which events of which calendar are the sittings of a meeting.
@@ -36,7 +36,7 @@ type Synced struct {
 // SetCalendar links a meeting to a calendar source.
 func (s *Store) SetCalendar(alias string, link CalLink) (*Meeting, error) {
 	if link.Match == "" && link.RecurringID == "" {
-		return nil, spec.UserError("a calendar link needs --match (a pattern on the event title) or --recurring-id. Example: ordo meeting calendar %s --source work --match \"^Séance de direction\"", strings.ToUpper(alias))
+		return nil, spec.UserError("a calendar link needs --match (a pattern on the event title) or --recurring-id. Example: oj meeting calendar %s --source work --match \"^Séance de direction\"", strings.ToUpper(alias))
 	}
 	if link.Match != "" {
 		if _, err := regexp.Compile(link.Match); err != nil {
@@ -85,7 +85,7 @@ func (s *Store) Sync(alias string, events []calendar.Event, from, to time.Time) 
 		return nil, err
 	}
 	if m.Calendar == nil {
-		return nil, spec.UserError("meeting %s has no calendar. Link one: ordo meeting calendar %s --source <name> --match <pattern>", m.Alias, m.Alias)
+		return nil, spec.UserError("meeting %s has no calendar. Link one: oj meeting calendar %s --source <name> --match <pattern>", m.Alias, m.Alias)
 	}
 	out := &Synced{Meeting: m.Alias, Changes: []SyncChange{}, Unconfirmed: []string{}}
 	var mine []calendar.Event

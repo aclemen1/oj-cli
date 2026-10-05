@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 func init() {
@@ -28,7 +28,7 @@ func init() {
 			{Name: "recurring-id", Kind: spec.String, Help: "Id of the recurring event in the calendar."},
 		},
 		Effects:  []string{"Writes the calendar link in meeting.md."},
-		Examples: []string{`ordo meeting calendar RDIR --source work --match "^Séance de direction" --sphere pro`},
+		Examples: []string{`oj meeting calendar RDIR --source work --match "^Séance de direction" --sphere pro`},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			cfg, err := config.Load(ctx.Config)
 			if err != nil {
@@ -52,7 +52,7 @@ func init() {
 			{Name: "days", Kind: spec.String, Default: "90", Help: "How many days ahead to read."},
 		},
 		Effects:  []string{"Moves, cancels or adds sittings to match the calendar; one commit per meeting that changed."},
-		Examples: []string{"ordo sitting sync --sphere pro", "ordo sitting sync RDIR --days 30 --sphere pro"},
+		Examples: []string{"oj sitting sync --sphere pro", "oj sitting sync RDIR --days 30 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			days, err := strconv.Atoi(ctx.Str("days"))
 			if err != nil || days < 1 {
@@ -86,7 +86,7 @@ func init() {
 			out := []*store.Synced{}
 			for _, m := range ms {
 				if m.Calendar == nil {
-					return nil, spec.UserError("meeting %s has no calendar. Link one: ordo meeting calendar %s --source <name> --match <pattern>", m.Alias, m.Alias)
+					return nil, spec.UserError("meeting %s has no calendar. Link one: oj meeting calendar %s --source <name> --match <pattern>", m.Alias, m.Alias)
 				}
 				src, ok := cfg.Calendars[m.Calendar.Source]
 				if !ok {

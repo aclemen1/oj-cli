@@ -6,18 +6,18 @@ import (
 	"os"
 	"strings"
 
-	"github.com/aclemen1/ordo-cli/internal/actions"
-	_ "github.com/aclemen1/ordo-cli/internal/mcpserver"
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	_ "github.com/aclemen1/ordo-cli/internal/tui"
+	"github.com/aclemen1/oj-cli/internal/actions"
+	_ "github.com/aclemen1/oj-cli/internal/mcpserver"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	_ "github.com/aclemen1/oj-cli/internal/tui"
 )
 
-const rootHelp = `ordo — the agenda of meetings: items, sittings, outcomes, minutes.
+const rootHelp = `oj — the agenda of meetings: items, sittings, outcomes, minutes.
 
-Usage: ordo <category> <action> [arguments] [--sphere <name>] [--config <path>] [--format json|text]
+Usage: oj <category> <action> [arguments] [--sphere <name>] [--config <path>] [--format json|text]
 
-MESSAGE FOR LLM / AI AGENTS: run ` + "`ordo schema`" + ` to list categories, then
-` + "`ordo schema <category> <action>`" + ` for the exact parameters, examples and
+MESSAGE FOR LLM / AI AGENTS: run ` + "`oj schema`" + ` to list categories, then
+` + "`oj schema <category> <action>`" + ` for the exact parameters, examples and
 effects of one action. Copy an example from there.
 
 Actions by category:
@@ -55,7 +55,7 @@ func run(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 	if format != "" && format != "json" && format != "text" {
-		return spec.Emit(stdout, stderr, nil, "json", nil, spec.UserError("--format takes json or text, got %q. Example: ordo item ls --format text", format))
+		return spec.Emit(stdout, stderr, nil, "json", nil, spec.UserError("--format takes json or text, got %q. Example: oj item ls --format text", format))
 	}
 	if len(rest) == 0 {
 		printRoot(stdout)
@@ -68,9 +68,9 @@ func run(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				spec.TextSchema(stdout, spec.ActionsIn(rest[0]))
 				return 0
 			}
-			return spec.Emit(stdout, stderr, nil, format, nil, spec.UserError("unknown action %q in %s. Actions: run `ordo schema %s`", rest[1], rest[0], rest[0]))
+			return spec.Emit(stdout, stderr, nil, format, nil, spec.UserError("unknown action %q in %s. Actions: run `oj schema %s`", rest[1], rest[0], rest[0]))
 		}
-		return spec.Emit(stdout, stderr, nil, format, nil, spec.UserError("unknown command %q. Run `ordo schema` to list categories, for example `ordo item add`", rest[0]))
+		return spec.Emit(stdout, stderr, nil, format, nil, spec.UserError("unknown command %q. Run `oj schema` to list categories, for example `oj item add`", rest[0]))
 	}
 	if help {
 		spec.TextSchema(stdout, spec.Leaf{Action: act, Usage: spec.Usage(act)})
@@ -90,7 +90,7 @@ func printRoot(w io.Writer) {
 	for _, c := range spec.Categories() {
 		var names []string
 		for _, a := range spec.ActionsIn(c) {
-			names = append(names, strings.TrimPrefix(a.Command, "ordo "))
+			names = append(names, strings.TrimPrefix(a.Command, "oj "))
 		}
 		fmt.Fprintf(w, "  %-10s %s\n", c, strings.Join(names, ", "))
 	}

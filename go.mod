@@ -1,4 +1,4 @@
-module github.com/aclemen1/ordo-cli
+module github.com/aclemen1/oj-cli
 
 go 1.26.5
 

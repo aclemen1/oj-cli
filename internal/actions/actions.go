@@ -1,4 +1,4 @@
-// Package actions declares every ordo action once; the CLI, the schema and
+// Package actions declares every oj action once; the CLI, the schema and
 // the MCP server are projections of these declarations.
 package actions
 
@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aclemen1/ordo-cli/internal/config"
-	"github.com/aclemen1/ordo-cli/internal/spec"
-	"github.com/aclemen1/ordo-cli/internal/store"
+	"github.com/aclemen1/oj-cli/internal/config"
+	"github.com/aclemen1/oj-cli/internal/spec"
+	"github.com/aclemen1/oj-cli/internal/store"
 )
 
 const Version = "0.1.0"
@@ -26,7 +26,7 @@ var clock func() time.Time
 func SetClock(f func() time.Time) { clock = f }
 
 func sphereParam() spec.Param {
-	return spec.Param{Name: "sphere", Kind: spec.String, Help: "Sphere to act in, e.g. pro. Defaults to $ORDO_SPHERE."}
+	return spec.Param{Name: "sphere", Kind: spec.String, Help: "Sphere to act in, e.g. pro. Defaults to $OJ_SPHERE."}
 }
 
 // Open returns the store of the call's sphere.
@@ -39,7 +39,7 @@ func open(ctx *spec.Context) (*store.Store, error) {
 	}
 	sphere := ctx.Str("sphere")
 	if sphere == "" {
-		sphere = os.Getenv("ORDO_SPHERE")
+		sphere = os.Getenv("OJ_SPHERE")
 	}
 	if sphere == "" {
 		names := cfg.Names()
@@ -47,12 +47,12 @@ func open(ctx *spec.Context) (*store.Store, error) {
 		if len(names) > 0 {
 			ex = names[0]
 		}
-		return nil, spec.UserError("no sphere given: pass --sphere or set ORDO_SPHERE (configured: %s). Example: --sphere %s", strings.Join(names, ", "), ex)
+		return nil, spec.UserError("no sphere given: pass --sphere or set OJ_SPHERE (configured: %s). Example: --sphere %s", strings.Join(names, ", "), ex)
 	}
 	if ctx.Spheres != nil && !contains(ctx.Spheres, sphere) {
 		return nil, spec.Forbidden("sphere %q is not served here; served: %s", sphere, strings.Join(ctx.Spheres, ", "))
 	}
-	by := os.Getenv("ORDO_BY")
+	by := os.Getenv("OJ_BY")
 	if ctx.Spheres != nil && !strings.HasPrefix(by, "agent:") {
 		by = "agent:mcp"
 	}
@@ -100,11 +100,11 @@ func registerMeta() {
 		Summary: "Declare a sphere and create its store.",
 		Params: []spec.Param{
 			{Name: "sphere", Kind: spec.String, Required: true, Help: "Sphere name, e.g. pro."},
-			{Name: "root", Kind: spec.String, Required: true, Help: "Directory of the sphere's store, e.g. ~/ordo/pro."},
+			{Name: "root", Kind: spec.String, Required: true, Help: "Directory of the sphere's store, e.g. ~/oj/pro."},
 			{Name: "vcs", Kind: spec.String, Default: "jj", Enum: []string{"jj", "git", "none"}, Help: "Version control of the store: a commit after each change."},
 		},
 		Effects:  []string{"Adds the sphere to the configuration file.", "Creates the store directory and, with jj or git, its repository."},
-		Examples: []string{"ordo init --sphere pro --root ~/ordo/pro", "ordo init --sphere perso --root ~/ordo/perso --vcs none"},
+		Examples: []string{"oj init --sphere pro --root ~/oj/pro", "oj init --sphere perso --root ~/oj/perso --vcs none"},
 		Run: func(ctx *spec.Context) (any, error) {
 			cfg, err := config.Load(ctx.Config)
 			if err != nil {
@@ -124,8 +124,8 @@ func registerMeta() {
 		},
 	})
 	spec.Register(&spec.Action{
-		Category: "meta", Name: "version", Top: true, Meta: true, Summary: "Print the ordo version.",
-		Examples: []string{"ordo version"},
+		Category: "meta", Name: "version", Top: true, Meta: true, Summary: "Print the oj version.",
+		Examples: []string{"oj version"},
 		Run:      func(*spec.Context) (any, error) { return Version, nil },
 	})
 	spec.Register(&spec.Action{
@@ -136,7 +136,7 @@ func registerMeta() {
 			{Name: "action", Kind: spec.String, Positional: true, Help: "Action to describe."},
 			{Name: "search", Kind: spec.String, Help: "Match actions across categories."},
 		},
-		Examples: []string{"ordo schema", "ordo schema item", "ordo schema item add", "ordo schema --search defer"},
+		Examples: []string{"oj schema", "oj schema item", "oj schema item add", "oj schema --search defer"},
 		Run: func(ctx *spec.Context) (any, error) {
 			if q := ctx.Str("search"); q != "" {
 				return spec.Search(q), nil
@@ -154,7 +154,7 @@ func registerMeta() {
 			}
 			a := spec.Find(cat, act)
 			if a == nil {
-				return nil, spec.NotFound("no action %q in %q. Try `ordo schema %s`", act, cat, cat)
+				return nil, spec.NotFound("no action %q in %q. Try `oj schema %s`", act, cat, cat)
 			}
 			return spec.Leaf{Action: a, Usage: spec.Usage(a)}, nil
 		},
@@ -168,19 +168,19 @@ func registerMeta() {
 			{Name: "for", Kind: spec.String, Default: "claude", Help: "Harness to install for: claude."},
 			{Name: "dir", Kind: spec.String, Help: "Install into this directory instead."},
 		},
-		Effects:  []string{"install: writes SKILL.md into ~/.claude/skills/ordo/ (or --dir)."},
-		Examples: []string{"ordo skill show", "ordo skill install --for claude"},
+		Effects:  []string{"install: writes SKILL.md into ~/.claude/skills/oj/ (or --dir)."},
+		Examples: []string{"oj skill show", "oj skill install --for claude"},
 		Run: func(ctx *spec.Context) (any, error) {
 			if ctx.Str("verb") != "install" {
 				return strings.TrimSpace(skillText), nil
 			}
 			if f := ctx.Str("for"); f != "claude" && f != "claude-code" {
-				return nil, spec.UserError("--for takes claude, got %q. Example: ordo skill install --for claude", f)
+				return nil, spec.UserError("--for takes claude, got %q. Example: oj skill install --for claude", f)
 			}
 			dir := config.Expand(ctx.Str("dir"))
 			if dir == "" {
 				home, _ := os.UserHomeDir()
-				dir = filepath.Join(home, ".claude", "skills", "ordo")
+				dir = filepath.Join(home, ".claude", "skills", "oj")
 			}
 			if err := os.MkdirAll(dir, 0o755); err != nil {
 				return nil, err
