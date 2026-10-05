@@ -44,6 +44,7 @@ const (
 	vItem
 	vLive
 	vActions
+	vSittings
 )
 
 type prompt int
@@ -59,13 +60,23 @@ const (
 	pUnminute
 )
 
-// row is a line of the agenda: an item on it, a proposal, or a dropped item.
+// row is a line of the agenda: an item on it, a proposal, a dropped item, or
+// an item deferred from this sitting to a later one.
 type row struct {
 	item     *store.Item
 	outcome  *store.Outcome
 	start    string
 	proposed bool
 	dropped  bool
+	away     bool
+}
+
+// ovRow is a line of the sittings view: a meeting, a sitting, or an item.
+type ovRow struct {
+	meeting, sitting string
+	item             *store.Item
+	agenda           *store.Agenda
+	unplanned        bool
 }
 
 type meetingRow struct {
@@ -102,6 +113,12 @@ type model struct {
 	selA     int
 	showDone bool
 
+	ovScope string // a meeting alias, or "" for every meeting
+	ovRows  []ovRow
+	selO    int
+	// pick is the item to select once the next agenda is loaded.
+	pick string
+
 	live live
 
 	prompt prompt
@@ -112,6 +129,8 @@ type model struct {
 	status    string
 	statusErr bool
 	warnings  warnings
+	// helpOff hides the help panel, open by default.
+	helpOff bool
 
 	// refs caches what the sphere's ref commands say, by ref.
 	refs map[string]refEntry
@@ -272,6 +291,20 @@ func (m *model) loadActions() tea.Cmd {
 	}
 }
 
+type overviewMsg struct {
+	ovs []store.Overview
+	err error
+}
+
+func (m *model) loadOverview() tea.Cmd {
+	scope := m.ovScope
+	since := m.now().AddDate(0, 0, -30).Format("2006-01-02")
+	return func() tea.Msg {
+		ovs, err := m.st.Overviews(scope, since, 4)
+		return overviewMsg{ovs, err}
+	}
+}
+
 // reload refreshes what the current view shows.
 func (m *model) reload() tea.Cmd {
 	switch m.view {
@@ -287,6 +320,8 @@ func (m *model) reload() tea.Cmd {
 		}
 	case vActions:
 		return m.loadActions()
+	case vSittings:
+		return m.loadOverview()
 	}
 	return nil
 }
@@ -339,8 +374,19 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, it := range msg.agenda.Proposed {
 			m.rows = append(m.rows, row{item: it, proposed: true})
 		}
+		for _, it := range msg.agenda.Deferred {
+			m.rows = append(m.rows, row{item: it, away: true})
+		}
 		for _, it := range msg.agenda.Dropped {
 			m.rows = append(m.rows, row{item: it, dropped: true})
+		}
+		if m.pick != "" {
+			for i, r := range m.rows {
+				if r.item.ID == m.pick {
+					m.sel = i
+				}
+			}
+			m.pick = ""
 		}
 		m.sel = min(m.sel, max(0, len(m.rows)-1))
 		m.live.cur = min(m.live.cur, max(0, len(msg.agenda.Items)-1))
@@ -350,6 +396,28 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchRefs()
 	case refMsg:
 		m.refs[msg.shown.Ref] = refEntry{shown: msg.shown, at: m.now()}
+	case overviewMsg:
+		if msg.err != nil {
+			m.setStatus(msg.err.Error(), true)
+			break
+		}
+		m.ovRows = nil
+		for _, ov := range msg.ovs {
+			m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting})
+			for _, a := range ov.Sittings {
+				m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, sitting: a.Sitting.ID, agenda: a})
+				for _, ai := range a.Items {
+					m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, sitting: a.Sitting.ID, item: ai.Item})
+				}
+				for _, it := range a.Proposed {
+					m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, sitting: a.Sitting.ID, item: it})
+				}
+			}
+			for _, it := range ov.Unplanned {
+				m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, item: it, unplanned: true})
+			}
+		}
+		m.selO = min(m.selO, max(0, len(m.ovRows)-1))
 	case itemMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
@@ -385,6 +453,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.keyPrompt(msg)
 		}
 		m.status = ""
+		if msg.String() == "?" {
+			m.helpOff = !m.helpOff
+			return m, nil
+		}
 		switch m.view {
 		case vMeetings:
 			return m, m.keyMeetings(msg)
@@ -398,9 +470,52 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.fetchRefs())
 		case vActions:
 			return m, m.keyActions(msg)
+		case vSittings:
+			return m, m.keySittings(msg)
 		}
 	}
 	return m, nil
+}
+
+// openOverview shows the sittings of a meeting, or of every meeting.
+func (m *model) openOverview(scope string, back view) tea.Cmd {
+	if m.ovScope != scope {
+		m.selO = 0
+	}
+	m.ovScope, m.back, m.view = scope, back, vSittings
+	return m.loadOverview()
+}
+
+func (m *model) keySittings(k tea.KeyPressMsg) tea.Cmd {
+	switch k.String() {
+	case "q", "esc":
+		m.view = m.back
+		return m.reload()
+	case "j", "down":
+		m.selO = min(len(m.ovRows)-1, m.selO+1)
+	case "k", "up":
+		m.selO = max(0, m.selO-1)
+	case "enter":
+		if m.selO >= len(m.ovRows) {
+			return nil
+		}
+		r := m.ovRows[m.selO]
+		switch {
+		case r.item != nil && r.unplanned:
+			m.back, m.view, m.scroll, m.item = vSittings, vItem, 0, r.item
+			return m.loadItem(r.item.ID)
+		case r.sitting != "":
+			if r.item != nil {
+				m.pick = r.item.ID
+			}
+			m.agenda = nil
+			return m.loadAgenda(r.sitting)
+		case r.meeting != "":
+			m.agenda = nil
+			return m.loadAgenda(r.meeting)
+		}
+	}
+	return nil
 }
 
 func (m *model) ask(p prompt, label, target, value string) tea.Cmd {
@@ -521,6 +636,8 @@ func (m *model) keyMeetings(k tea.KeyPressMsg) tea.Cmd {
 	case "A":
 		m.back, m.view = vMeetings, vActions
 		return m.loadActions()
+	case "S":
+		return m.openOverview("", vMeetings)
 	case "R":
 		return m.loadMeetings()
 	}
@@ -616,6 +733,8 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	case "A":
 		m.back, m.view = vAgenda, vActions
 		return m.loadActions()
+	case "S":
+		return m.openOverview(m.meeting, vAgenda)
 	}
 	return nil
 }

@@ -237,9 +237,11 @@ type Agenda struct {
 	Items    []AgendaItem `json:"items"`
 	Proposed []*Item      `json:"proposed"`
 	Dropped  []*Item      `json:"dropped"`
-	Planned  string       `json:"planned"`
-	Duration string       `json:"duration,omitempty"`
-	Over     bool         `json:"over,omitempty"`
+	// Deferred: items deferred from this sitting to a later one, before it was held.
+	Deferred []*Item `json:"deferred"`
+	Planned  string  `json:"planned"`
+	Duration string  `json:"duration,omitempty"`
+	Over     bool    `json:"over,omitempty"`
 }
 
 // agendaItems returns the items of a sitting in agenda order, and its proposals.
@@ -287,7 +289,8 @@ func (s *Store) Agenda(arg string) (*Agenda, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &Agenda{Sitting: sit, Title: m.Title, Proposed: proposed, Duration: sit.Duration, Items: []AgendaItem{}, Dropped: []*Item{}}
+	a := &Agenda{Sitting: sit, Title: m.Title, Proposed: proposed, Duration: sit.Duration, Items: []AgendaItem{},
+		Dropped: []*Item{}, Deferred: []*Item{}}
 	if a.Proposed == nil {
 		a.Proposed = []*Item{}
 	}
@@ -296,8 +299,11 @@ func (s *Store) Agenda(arg string) (*Agenda, error) {
 		return nil, err
 	}
 	for _, it := range all {
-		if it.Sitting == sit.ID && it.State == "dropped" {
+		switch {
+		case it.Sitting == sit.ID && it.State == "dropped":
 			a.Dropped = append(a.Dropped, it)
+		case it.State == "deferred" && it.DeferredFrom == sit.ID && it.Sitting != sit.ID && it.entry(sit.ID) == nil:
+			a.Deferred = append(a.Deferred, it)
 		}
 	}
 	var clock time.Time

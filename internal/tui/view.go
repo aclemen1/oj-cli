@@ -17,16 +17,68 @@ func (m *model) View() tea.View {
 	return v
 }
 
+// helpSide is the width from which the help panel sits at the right.
+const helpSide = 120
+
 func (m *model) render() string {
+	w, h := m.w, m.h
+	var panel []string
+	side := false
+	if !m.helpOff {
+		if w >= helpSide {
+			side = true
+			hw := min(52, w/3)
+			panel = m.helpPanel(hw)
+			m.w = w - hw - 3
+		} else {
+			panel = m.helpPanel(w - 2)
+			ph := min(len(panel), max(4, (h-2)/2))
+			panel = panel[:ph]
+			m.h = h - ph - 1
+		}
+	}
+	lines, foot := m.renderMain()
+	mainW, mainH := m.w, m.h
+	m.w, m.h = w, h
+	head := sTitle.Render("oj") + " " + sphereTag(m.st.Sphere)
+	var body string
+	switch {
+	case panel == nil:
+		body = block(lines, w, h-2)
+	case side:
+		left := strings.Split(block(lines, mainW, h-2), "\n")
+		right := strings.Split(block(panel, w-mainW-3, h-2), "\n")
+		rows := make([]string, len(left))
+		for i := range left {
+			rows[i] = left[i] + " " + sMuted.Render("│") + " " + right[i]
+		}
+		body = strings.Join(rows, "\n")
+	default:
+		body = block(lines, w, mainH-2) + "\n" + sMuted.Render(strings.Repeat("─", w)) + "\n" + block(panel, w, h-mainH-1)
+	}
+	return pad(head, w) + "\n" + body + "\n" + pad(foot, w)
+}
+
+// renderMain renders the view at m.w × m.h and returns its lines and footer.
+func (m *model) renderMain() ([]string, string) {
 	var lines []string
 	var help string
 	switch m.view {
 	case vMeetings:
-		lines, help = m.renderMeetings(), helpLine("enter", "agenda", "A", "actions", "R", "refresh", "q", "quit")
+		lines, help = m.renderMeetings(), helpLine("enter", "agenda", "S", "all sittings", "A", "actions", "R", "refresh", "q", "quit")
 	case vAgenda:
-		lines, help = m.renderAgenda(), helpLine("n", "new", "a", "accept", "d", "defer", "x", "drop", "J/K", "move", "+/-", "5 min",
-			"e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold", "m", "minutes", "u", "undo item", "U", "undo sitting",
-			"c", "create ref", "[/]", "sitting", "esc", "back")
+		pairs := []string{"n", "new", "a", "accept", "d", "defer", "x", "drop"}
+		if u := m.undoLabel(); u != "" {
+			pairs = append(pairs, "u", u)
+		}
+		if u := undoSittingLabel(m.agenda); u != "" {
+			pairs = append(pairs, "U", u)
+		}
+		pairs = append(pairs, "J/K", "move", "+/-", "5 min", "e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold",
+			"m", "minutes", "c", "create ref", "S", "sittings", "[/]", "sitting", "esc", "back")
+		lines, help = m.renderAgenda(), helpLine(pairs...)
+	case vSittings:
+		lines, help = m.renderOverview(), helpLine("enter", "open", "j/k", "move", "esc", "back")
 	case vItem:
 		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
 	case vLive:
@@ -43,9 +95,12 @@ func (m *model) render() string {
 		foot = sErr.Render(m.status)
 	case m.status != "":
 		foot = sOK.Render(m.status)
+	case !m.helpOff:
+		foot = helpLine("?", m.tr("masquer l'aide", "hide help")) + sMuted.Render(" · ") + help
+	default:
+		foot = helpLine("?", m.tr("aide", "help")) + sMuted.Render(" · ") + help
 	}
-	head := sTitle.Render("oj") + " " + sphereTag(m.st.Sphere)
-	return pad(head, m.w) + "\n" + block(lines, m.w, m.h-2) + "\n" + pad(foot, m.w)
+	return lines, foot
 }
 
 // window keeps the selected line on screen.
@@ -118,11 +173,15 @@ func (m *model) renderAgenda() []string {
 	}
 	out := m.sittingHeader()
 	var rows []string
-	shownProposed, shownDropped := false, false
+	shownProposed, shownDropped, shownAway := false, false, false
 	for i, r := range m.rows {
 		if r.proposed && !shownProposed {
 			rows = append(rows, "", sSection.Render("Proposed"))
 			shownProposed = true
+		}
+		if r.away && !shownAway {
+			rows = append(rows, "", sSection.Render("Deferred"))
+			shownAway = true
 		}
 		if r.dropped && !shownDropped {
 			rows = append(rows, "", sSection.Render("Dropped"))
@@ -135,6 +194,8 @@ func (m *model) renderAgenda() []string {
 		}
 		var line string
 		switch {
+		case r.away:
+			line = fmt.Sprintf("  %-10s %5s  %s%s  %s", it.ID, it.Duration, it.Title, owner, sWarn.Render("→ "+orDash(it.Sitting)))
 		case r.dropped:
 			line = sMuted.Render(fmt.Sprintf("  %-10s %5s  %s — %s", it.ID, it.Duration, it.Title, it.Reason))
 		case r.proposed:
@@ -383,4 +444,91 @@ func (m *model) renderActions() []string {
 		out = append(out, line)
 	}
 	return window(out, m.selA, m.h-2)
+}
+
+func orDash(s string) string {
+	if s == "" {
+		return "no sitting yet"
+	}
+	return s
+}
+
+// undoLabel names what u does on the selected item.
+func (m *model) undoLabel() string {
+	r := m.current()
+	if r == nil {
+		return ""
+	}
+	switch r.item.State {
+	case "deferred":
+		return "undefer"
+	case "dropped", "done":
+		return "restore"
+	}
+	return ""
+}
+
+// undoSittingLabel names what U does on the sitting.
+func undoSittingLabel(a *store.Agenda) string {
+	if a == nil {
+		return ""
+	}
+	switch a.Sitting.State {
+	case "frozen":
+		return "reopen"
+	case "held":
+		return "unhold"
+	case "minuted":
+		return "unminute"
+	case "cancelled":
+		return "restore"
+	}
+	return ""
+}
+
+func (m *model) renderOverview() []string {
+	if len(m.ovRows) == 0 {
+		return []string{"", sMuted.Render("  loading…")}
+	}
+	var out []string
+	sel := 0
+	for i, r := range m.ovRows {
+		var line string
+		switch {
+		case r.sitting == "" && r.item == nil:
+			if i > 0 {
+				out = append(out, "")
+			}
+			line = " " + sTitle.Render(r.meeting)
+		case r.agenda != nil:
+			s := r.agenda.Sitting
+			total := r.agenda.Planned
+			if r.agenda.Duration != "" {
+				total += " of " + r.agenda.Duration
+			}
+			n := len(r.agenda.Items)
+			line = fmt.Sprintf("  %s  %s  %s  %s", sBold.Render(fmt.Sprintf("%-20s", s.ID)), strings.TrimSpace(s.Date+" "+s.Time),
+				stateStyle(s.State).Render(fmt.Sprintf("%-9s", s.State)), sMuted.Render(fmt.Sprintf("%d %s · %s", n, plural(n, "item"), total)))
+			if r.agenda.Over {
+				line += " " + sWarn.Render("over time")
+			}
+		case r.unplanned:
+			line = fmt.Sprintf("      %-10s %s  %s", r.item.ID, r.item.Title, sWarn.Render("no sitting yet"))
+		default:
+			line = fmt.Sprintf("      %-10s %s  %s", r.item.ID, r.item.Title, stateStyle(r.item.State).Render(r.item.State))
+		}
+		if i == m.selO {
+			line = selectLine(line, m.w)
+			sel = len(out)
+		}
+		out = append(out, line)
+	}
+	return window(out, sel, m.h-2)
+}
+
+func plural(n int, word string) string {
+	if n == 1 {
+		return word
+	}
+	return word + "s"
 }

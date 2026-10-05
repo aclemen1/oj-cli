@@ -102,3 +102,22 @@ func TestUndoItem(t *testing.T) {
 		t.Fatalf("undefer after minutes %+v", b)
 	}
 }
+
+func TestDeferredListAndOverviews(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "A"}, true, ""))
+	must[*Item](t)(s.DeferItem("RDIR-1", ""))
+	a := must[*Agenda](t)(s.Agenda("RDIR-2026-10-08"))
+	if len(a.Deferred) != 1 || a.Deferred[0].ID != "RDIR-1" || len(a.Items) != 0 {
+		t.Fatalf("deferred list %+v", a)
+	}
+	must[*Meeting](t)(s.AddMeeting("ONEOFF", MeetingInput{Title: "Ponctuelle"}))
+	must[*Item](t)(s.AddItem("ONEOFF", ItemInput{Title: "En attente"}, false, ""))
+	ovs := must[[]Overview](t)(s.Overviews("", "", 3))
+	if len(ovs) != 2 || ovs[0].Meeting != "ONEOFF" || len(ovs[0].Unplanned) != 1 || len(ovs[1].Sittings) != 3 {
+		t.Fatalf("overviews %+v", ovs)
+	}
+	if next := ovs[1].Sittings[1]; next.Sitting.ID != "RDIR-2026-10-15" || len(next.Items) != 1 {
+		t.Fatalf("second sitting %+v", next)
+	}
+}

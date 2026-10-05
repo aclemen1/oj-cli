@@ -204,7 +204,7 @@ sitting that did not happen.
 |---|---|
 | `meeting add <alias> --title … [--rrule …] [--duration] [--chair] [--member]… [--calendar …] [--ref]…` | creates a meeting |
 | `meeting ls`, `meeting show <alias>`, `meeting edit <alias> --set <field>=<value>` | reads and edits |
-| `sitting ls [<alias>] [--state] [--ahead N] [--since]` | lists sittings |
+| `sitting ls [<alias>] [--state] [--ahead N] [--since] [--with-items]` | lists sittings; with `--with-items`, each meeting with its sittings' agendas and its items with no sitting |
 | `sitting show <sitting\|alias>` | the agenda: ordered items, slots, total time against `duration`, proposed items apart; an alias means its next sitting |
 | `sitting add <alias> --date … [--time] [--place]`, `sitting move <sitting> --date …`, `sitting cancel <sitting> [--reason]` | one-off changes |
 | `sitting freeze <sitting> [--leave-proposed]`, `sitting reopen <sitting>` | closes or reopens the agenda; freeze renders the agenda |
@@ -366,6 +366,19 @@ oj import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 
 `oj tui`, Bubble Tea v2, keys aligned with the TUIs of `office` and
 `routine`.
+
+A help panel, open by default (`?` hides it), says where the user is and
+what can be done next: in the agenda, the sitting on its cycle (planned →
+frozen → held → minuted) with what that state means and the next step, the
+actions open on the sitting and on the selected item for their states, and
+how to navigate. It sits at the right on a wide terminal, below otherwise,
+in French for a sphere rendered in French, in English otherwise.
+
+The agenda also lists, under "Deferred", the items deferred from this
+sitting to a later one, so that `u` (undefer) can bring them back. `S`
+opens the sittings view: recent and upcoming sittings, each with its items,
+then items with no sitting; from the meetings list for every meeting, from
+an agenda for its meeting.
 
 | View | Shows | Actions |
 |---|---|---|

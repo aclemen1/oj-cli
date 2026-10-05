@@ -37,7 +37,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, overviewMsg:
 		return "oj"
 	}
 	return "tea.other"
@@ -85,6 +85,7 @@ func setup(t *testing.T) (*model, *store.Store, *time.Time) {
 	m := newModel(st)
 	m.now = func() time.Time { return now }
 	m.w, m.h = 140, 40
+	m.helpOff = true
 	drive(t, m, m.Init())
 	return m, st, &now
 }
@@ -270,5 +271,96 @@ func TestMarkdownKeepsLineBreaks(t *testing.T) {
 	}
 	if strings.Contains(got, "Première ligne. Deuxième") {
 		t.Fatalf("lines joined:\n%s", got)
+	}
+}
+
+func TestDeferredSectionAndUndefer(t *testing.T) {
+	m, st, _ := setup(t)
+	press(t, m, "enter")
+	press(t, m, "d") // defer RDIR-1 from the 8th
+	s := screen(m)
+	if !strings.Contains(s, "Deferred") || !strings.Contains(s, "→ RDIR-2026-10-15") {
+		t.Fatalf("deferred section:\n%s", s)
+	}
+	for i, r := range m.rows {
+		if r.away {
+			m.sel = i
+		}
+	}
+	m.status = ""
+	if !strings.Contains(screen(m), "u undefer") {
+		t.Fatalf("help should name undefer:\n%s", screen(m))
+	}
+	press(t, m, "u")
+	if it, _ := st.Item("RDIR-1"); it.State != "accepted" || it.Sitting != "RDIR-2026-10-08" {
+		t.Fatalf("undefer from the TUI: %+v", it)
+	}
+}
+
+func TestSittingsOverview(t *testing.T) {
+	m, st, _ := setup(t)
+	st.AddItem("RDIR", store.ItemInput{Title: "Plus tard"}, true, "RDIR-2026-10-22")
+	press(t, m, "S")
+	s := screen(m)
+	for _, want := range []string{"RDIR", "RDIR-2026-10-08", "Budget 2027", "Audit S3", "RDIR-2026-10-22", "Plus tard", "RDIR-2026-10-15"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("overview lacks %q:\n%s", want, s)
+		}
+	}
+	// Go to "Plus tard" and open its sitting with it selected.
+	for i, r := range m.ovRows {
+		if r.item != nil && r.item.Title == "Plus tard" {
+			m.selO = i
+		}
+	}
+	press(t, m, "enter")
+	if m.view != vAgenda || m.agenda.Sitting.ID != "RDIR-2026-10-22" || m.current().item.Title != "Plus tard" {
+		t.Fatalf("open from overview: view %d, %s", m.view, m.agenda.Sitting.ID)
+	}
+	press(t, m, "S")
+	if m.ovScope != "RDIR" {
+		t.Fatalf("scope from an agenda: %q", m.ovScope)
+	}
+	press(t, m, "esc")
+	if m.view != vAgenda {
+		t.Fatal("esc goes back to the agenda")
+	}
+}
+
+func TestHelpPanel(t *testing.T) {
+	m, st, _ := setup(t)
+	m.helpOff = false
+	st.Render.Lang = "fr"
+	press(t, m, "enter")
+	s := screen(m)
+	for _, want := range []string{"OÙ VOUS EN ÊTES", "● planned", "frozen", "ÉTAPE SUIVANTE", "Trancher les points proposés",
+		"POINT · RDIR-1", "Retenu à l'ordre du jour", "le reporter", "NAVIGUER"} {
+		if !strings.Contains(s, want) {
+			t.Fatalf("help lacks %q:\n%s", want, s)
+		}
+	}
+	// The help follows the selection and the sitting's state.
+	for i, r := range m.rows {
+		if r.proposed {
+			m.sel = i
+		}
+	}
+	if s := screen(m); !strings.Contains(s, "Proposé : quelqu'un le demande") || !strings.Contains(s, "le retenir") {
+		t.Fatalf("help for a proposal:\n%s", s)
+	}
+	press(t, m, "a")
+	press(t, m, "f")
+	if s := screen(m); !strings.Contains(s, "● frozen") || !strings.Contains(s, "Le jour de la séance") {
+		t.Fatalf("help once frozen:\n%s", s)
+	}
+	press(t, m, "?")
+	if s := screen(m); strings.Contains(s, "OÙ VOUS EN ÊTES") || !strings.Contains(s, "? aide") {
+		t.Fatalf("help hidden:\n%s", s)
+	}
+	// Narrow screen: the help goes below.
+	press(t, m, "?")
+	m.w = 90
+	if s := screen(m); !strings.Contains(s, "OÙ VOUS EN ÊTES") {
+		t.Fatalf("help below on a narrow screen:\n%s", s)
 	}
 }

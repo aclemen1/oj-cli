@@ -28,12 +28,17 @@ func registerSittings() {
 			{Name: "state", Kind: spec.String, Default: "all", Enum: append([]string{"all"}, store.SittingStates...), Help: "Keep sittings in this state."},
 			{Name: "ahead", Kind: spec.String, Default: "3", Help: "Number of upcoming dates of each recurrence."},
 			{Name: "since", Kind: spec.String, Help: "Also list written sittings from this date, YYYY-MM-DD."},
+			{Name: "with-items", Kind: spec.Bool, Help: "Return each meeting with its sittings' agendas and its items without a sitting."},
 		},
-		Examples: []string{"oj sitting ls RDIR --sphere pro", "oj sitting ls --since 2026-01-01 --state minuted --sphere pro"},
+		Examples: []string{"oj sitting ls RDIR --sphere pro", "oj sitting ls --since 2026-01-01 --state minuted --sphere pro",
+			"oj sitting ls --with-items --format text --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			ahead, err := strconv.Atoi(ctx.Str("ahead"))
 			if err != nil || ahead < 0 {
 				return nil, spec.UserError("--ahead takes a number, got %q. Example: --ahead 5", ctx.Str("ahead"))
+			}
+			if ctx.Bool("with-items") {
+				return st.Overviews(ctx.Str("meeting"), ctx.Str("since"), ahead)
 			}
 			var ms []*store.Meeting
 			if a := ctx.Str("meeting"); a != "" {
@@ -56,6 +61,10 @@ func registerSittings() {
 			return out, nil
 		}),
 		Text: func(w io.Writer, r any) {
+			if ovs, ok := r.([]store.Overview); ok {
+				textOverviews(w, ovs)
+				return
+			}
 			for _, s := range r.([]*store.Sitting) {
 				v := ""
 				if s.Virtual {
@@ -204,6 +213,35 @@ func textAgenda(w io.Writer, a *store.Agenda) {
 		fmt.Fprintln(w, "\nProposed:")
 		for _, it := range a.Proposed {
 			fmt.Fprintf(w, "  %-10s %-5s %s\n", it.ID, it.Duration, it.Title)
+		}
+	}
+}
+
+func textOverviews(w io.Writer, ovs []store.Overview) {
+	for i, ov := range ovs {
+		if i > 0 {
+			fmt.Fprintln(w)
+		}
+		fmt.Fprintf(w, "%s · %s\n", ov.Meeting, ov.Title)
+		for _, a := range ov.Sittings {
+			s := a.Sitting
+			fmt.Fprintf(w, "\n  %s  %s %s  %s  %d items, %s", s.ID, s.Date, s.Time, s.State, len(a.Items), a.Planned)
+			if a.Duration != "" {
+				fmt.Fprintf(w, " of %s", a.Duration)
+			}
+			fmt.Fprintln(w)
+			for _, ai := range a.Items {
+				fmt.Fprintf(w, "    %-10s %-9s %s\n", ai.Item.ID, ai.Item.State, ai.Item.Title)
+			}
+			for _, it := range a.Proposed {
+				fmt.Fprintf(w, "    %-10s %-9s %s\n", it.ID, "proposed", it.Title)
+			}
+		}
+		if len(ov.Unplanned) > 0 {
+			fmt.Fprintln(w, "\n  no sitting yet")
+			for _, it := range ov.Unplanned {
+				fmt.Fprintf(w, "    %-10s %-9s %s\n", it.ID, it.State, it.Title)
+			}
 		}
 	}
 }
