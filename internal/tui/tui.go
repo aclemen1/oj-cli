@@ -82,8 +82,8 @@ type ovRow struct {
 }
 
 type meetingRow struct {
-	alias, title, next string
-	accepted, proposed int
+	alias, title, next, nextDate string
+	accepted, proposed           int
 }
 
 type live struct {
@@ -262,7 +262,7 @@ func (m *model) loadMeetings() tea.Cmd {
 		for _, mt := range ms {
 			r := meetingRow{alias: mt.Alias, title: mt.Title}
 			if a, err := m.st.Agenda(mt.Alias); err == nil {
-				r.next, r.accepted, r.proposed = a.Sitting.ID, len(a.Items), len(a.Proposed)
+				r.next, r.nextDate, r.accepted, r.proposed = a.Sitting.ID, a.Sitting.Date, len(a.Items), len(a.Proposed)
 			}
 			rows = append(rows, r)
 		}

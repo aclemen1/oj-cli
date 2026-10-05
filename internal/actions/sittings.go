@@ -5,6 +5,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aclemen1/oj-cli/internal/spec"
 	"github.com/aclemen1/oj-cli/internal/store"
@@ -70,7 +71,7 @@ func registerSittings() {
 				if s.Virtual {
 					v = " (from the recurrence)"
 				}
-				fmt.Fprintf(w, "%-20s %s %-5s %-9s%s\n", s.ID, s.Date, s.Time, s.State, v)
+				fmt.Fprintf(w, "%-20s %s %-5s %-9s%s\n", s.ID, weekday(s.Date), s.Time, s.State, v)
 			}
 		},
 	})
@@ -168,7 +169,7 @@ func registerSittings() {
 
 func textAgenda(w io.Writer, a *store.Agenda) {
 	s := a.Sitting
-	head := strings.TrimSpace(fmt.Sprintf("%s · %s %s", s.ID, s.Date, s.Time))
+	head := strings.TrimSpace(fmt.Sprintf("%s · %s %s", s.ID, weekday(s.Date), s.Time))
 	fmt.Fprintf(w, "%s\n%s · %s", a.Title, head, s.State)
 	if s.Place != "" {
 		fmt.Fprintf(w, " · %s", s.Place)
@@ -225,7 +226,7 @@ func textOverviews(w io.Writer, ovs []store.Overview) {
 		fmt.Fprintf(w, "%s · %s\n", ov.Meeting, ov.Title)
 		for _, a := range ov.Sittings {
 			s := a.Sitting
-			fmt.Fprintf(w, "\n  %s  %s %s  %s  %d items, %s", s.ID, s.Date, s.Time, s.State, len(a.Items), a.Planned)
+			fmt.Fprintf(w, "\n  %s  %s %s  %s  %d items, %s", s.ID, weekday(s.Date), s.Time, s.State, len(a.Items), a.Planned)
 			if a.Duration != "" {
 				fmt.Fprintf(w, " of %s", a.Duration)
 			}
@@ -244,4 +245,13 @@ func textOverviews(w io.Writer, ovs []store.Overview) {
 			}
 		}
 	}
+}
+
+// weekday puts the English weekday before a YYYY-MM-DD date.
+func weekday(d string) string {
+	t, err := time.Parse("2006-01-02", d)
+	if err != nil {
+		return d
+	}
+	return t.Format("Mon") + " " + d
 }

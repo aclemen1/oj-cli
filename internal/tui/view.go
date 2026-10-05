@@ -67,7 +67,7 @@ func (m *model) renderMain() ([]string, string) {
 		lines = []string{sBold.Render(m.tr("Déplacer ", "Move ") + m.moving.ID + " · " + m.moving.Title),
 			sMuted.Render(m.tr("vers la séance :", "to the sitting:")), ""}
 		for i, s := range m.choices {
-			line := fmt.Sprintf("  %-20s %s", s.ID, strings.TrimSpace(s.Date+" "+s.Time))
+			line := fmt.Sprintf("  %-20s %s", s.ID, strings.TrimSpace(m.day(s.Date)+" "+s.Time))
 			if key := strings.TrimPrefix(s.ID, s.Meeting+"-"); len(key) >= 10 && key[:10] != s.Date {
 				line += sMuted.Render(m.tr("  (déplacée)", "  (moved)"))
 			}
@@ -134,7 +134,7 @@ func (m *model) renderMeetings() []string {
 	for i, r := range m.meetings {
 		next := sMuted.Render("no upcoming sitting")
 		if r.next != "" {
-			next = fmt.Sprintf("%s  %s on the agenda", r.next, sBold.Render(fmt.Sprint(r.accepted)))
+			next = fmt.Sprintf("%s  %s  %s on the agenda", r.next, sMuted.Render(m.day(r.nextDate)), sBold.Render(fmt.Sprint(r.accepted)))
 			if r.proposed > 0 {
 				next += "  " + sWarn.Render(fmt.Sprintf("%d proposed", r.proposed))
 			}
@@ -150,7 +150,7 @@ func (m *model) renderMeetings() []string {
 
 func (m *model) sittingHeader() []string {
 	s := m.agenda.Sitting
-	when := strings.TrimSpace(s.Date + " " + s.Time)
+	when := strings.TrimSpace(m.day(s.Date) + " " + s.Time)
 	line := fmt.Sprintf("%s  %s  %s", sBold.Render(m.agenda.Title), when, stateStyle(s.State).Render(s.State))
 	if s.Place != "" {
 		line += sMuted.Render("  " + s.Place)
@@ -283,7 +283,7 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 		field("Summary", o.Summary)
 		field("Decision", o.Decision)
 		for _, a := range o.Actions {
-			field("Action", strings.Join(nonEmpty(a.What, a.Who, a.Due), " · "))
+			field("Action", strings.Join(nonEmpty(a.What, a.Who, m.dayOrEmpty(a.Due)), " · "))
 		}
 		field("Outcome", fmt.Sprintf("%s by %s, next %s", o.Status, o.By, o.Next))
 	}
@@ -361,7 +361,7 @@ func (m *model) renderItem() []string {
 					if a.Done {
 						mark = "[x]"
 					}
-					lines = append(lines, fmt.Sprintf("    %s %s (%s, %s)", mark, a.What, a.Who, a.Due))
+					lines = append(lines, fmt.Sprintf("    %s %s (%s, %s)", mark, a.What, a.Who, m.dayOrEmpty(a.Due)))
 				}
 				lines = append(lines, sMuted.Render(fmt.Sprintf("    %s by %s, next %s", o.Status, o.By, o.Next)))
 			}
@@ -422,7 +422,7 @@ func (m *model) renderLive() []string {
 				out = append(out, "      ! "+ai.Outcome.Decision)
 			}
 			for _, a := range ai.Outcome.Actions {
-				out = append(out, fmt.Sprintf("      > %s (%s, %s)", a.What, a.Who, a.Due))
+				out = append(out, fmt.Sprintf("      > %s (%s, %s)", a.What, a.Who, m.dayOrEmpty(a.Due)))
 			}
 		}
 	}
@@ -448,11 +448,11 @@ func (m *model) renderActions() []string {
 		if a.Done {
 			mark = sOK.Render("[x]")
 		}
-		due := a.Due
-		if due != "" && due < m.now().Format("2006-01-02") && !a.Done {
+		due := pad(m.dayOrEmpty(a.Due), 15)
+		if a.Due != "" && a.Due < m.now().Format("2006-01-02") && !a.Done {
 			due = sErr.Render(due)
 		}
-		line := fmt.Sprintf("  %s %-10s %-14s %s  %s", mark, due, a.Who, a.What, sMuted.Render(fmt.Sprintf("%s#%d", a.Item, a.N)))
+		line := fmt.Sprintf("  %s %s %-14s %s  %s", mark, due, a.Who, a.What, sMuted.Render(fmt.Sprintf("%s#%d", a.Item, a.N)))
 		if i == m.selA {
 			line = selectLine(line, m.w)
 		}
@@ -522,7 +522,7 @@ func (m *model) renderOverview() []string {
 				total += " of " + r.agenda.Duration
 			}
 			n := len(r.agenda.Items)
-			line = fmt.Sprintf("  %s  %s  %s  %s", sBold.Render(fmt.Sprintf("%-20s", s.ID)), strings.TrimSpace(s.Date+" "+s.Time),
+			line = fmt.Sprintf("  %s  %s  %s  %s", sBold.Render(fmt.Sprintf("%-20s", s.ID)), strings.TrimSpace(m.day(s.Date)+" "+s.Time),
 				stateStyle(s.State).Render(fmt.Sprintf("%-9s", s.State)), sMuted.Render(fmt.Sprintf("%d %s · %s", n, plural(n, "item"), total)))
 			if r.agenda.Over {
 				line += " " + sWarn.Render("over time")
@@ -546,4 +546,25 @@ func plural(n int, word string) string {
 		return word
 	}
 	return word + "s"
+}
+
+var weekdaysFR = []string{"dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."}
+
+// day puts the weekday before a YYYY-MM-DD date: "jeu. 2026-10-08", "Thu 2026-10-08".
+func (m *model) day(d string) string {
+	t, err := time.Parse("2006-01-02", d)
+	if err != nil {
+		return d
+	}
+	if m.fr() {
+		return weekdaysFR[t.Weekday()] + " " + d
+	}
+	return t.Format("Mon") + " " + d
+}
+
+func (m *model) dayOrEmpty(d string) string {
+	if d == "" {
+		return ""
+	}
+	return m.day(d)
 }

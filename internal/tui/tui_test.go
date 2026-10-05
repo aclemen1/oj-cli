@@ -94,7 +94,7 @@ func setup(t *testing.T) (*model, *store.Store, *time.Time) {
 
 func TestMeetingsAndAgenda(t *testing.T) {
 	m, st, _ := setup(t)
-	if s := screen(m); !strings.Contains(s, "RDIR") || !strings.Contains(s, "RDIR-2026-10-08  2 on the agenda") || !strings.Contains(s, "1 proposed") {
+	if s := screen(m); !strings.Contains(s, "RDIR") || !strings.Contains(s, "RDIR-2026-10-08  Thu 2026-10-08  2 on the agenda") || !strings.Contains(s, "1 proposed") {
 		t.Fatalf("meetings:\n%s", s)
 	}
 	press(t, m, "enter")
@@ -443,5 +443,21 @@ func TestJumpToRef(t *testing.T) {
 	press(t, m, "o")
 	if !m.statusErr {
 		t.Fatal("no ref: an error in the status line")
+	}
+}
+
+func TestWeekdays(t *testing.T) {
+	m, st, _ := setup(t)
+	if s := screen(m); !strings.Contains(s, "Thu 2026-10-08") {
+		t.Fatalf("english weekday:\n%s", s)
+	}
+	st.Render.Lang = "fr"
+	press(t, m, "enter")
+	if s := screen(m); !strings.Contains(s, "jeu. 2026-10-08 09:00") {
+		t.Fatalf("french weekday in the sitting header:\n%s", s)
+	}
+	press(t, m, "S")
+	if s := screen(m); !strings.Contains(s, "jeu. 2026-10-15") {
+		t.Fatalf("weekday in the sittings view:\n%s", s)
 	}
 }
