@@ -364,3 +364,25 @@ func TestHelpPanel(t *testing.T) {
 		t.Fatalf("help below on a narrow screen:\n%s", s)
 	}
 }
+
+func TestMovePicker(t *testing.T) {
+	m, st, _ := setup(t)
+	press(t, m, "enter")
+	press(t, m, "M")
+	if m.moving == nil || len(m.choices) == 0 || m.choices[0].ID != "RDIR-2026-10-15" {
+		t.Fatalf("picker %+v", m.choices)
+	}
+	if s := screen(m); !strings.Contains(s, "Move RDIR-1") || !strings.Contains(s, "RDIR-2026-10-22") {
+		t.Fatalf("picker screen:\n%s", s)
+	}
+	press(t, m, "j")
+	press(t, m, "enter")
+	if it, _ := st.Item("RDIR-1"); it.Sitting != "RDIR-2026-10-22" || it.State != "accepted" {
+		t.Fatalf("moved %+v", it)
+	}
+	press(t, m, "M")
+	press(t, m, "esc")
+	if m.moving != nil {
+		t.Fatal("esc cancels")
+	}
+}

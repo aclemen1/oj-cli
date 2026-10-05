@@ -119,6 +119,11 @@ type model struct {
 	// pick is the item to select once the next agenda is loaded.
 	pick string
 
+	// moving is the item whose sitting the user is choosing among choices.
+	moving  *store.Item
+	choices []*store.Sitting
+	selC    int
+
 	live live
 
 	prompt prompt
@@ -457,6 +462,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.helpOff = !m.helpOff
 			return m, nil
 		}
+		if m.moving != nil {
+			return m, m.keyPicker(msg)
+		}
 		switch m.view {
 		case vMeetings:
 			return m, m.keyMeetings(msg)
@@ -475,6 +483,39 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// startMove opens the choice of a planned sitting for an item.
+func (m *model) startMove(it *store.Item) tea.Cmd {
+	today := m.now().Format("2006-01-02")
+	m.choices = nil
+	for _, s := range m.sittings {
+		if s.State == "planned" && s.Date >= today && s.ID != it.Sitting {
+			m.choices = append(m.choices, s)
+		}
+	}
+	if len(m.choices) == 0 {
+		m.setStatus(m.tr("aucune autre séance planifiée", "no other planned sitting"), true)
+		return nil
+	}
+	m.moving, m.selC = it, 0
+	return nil
+}
+
+func (m *model) keyPicker(k tea.KeyPressMsg) tea.Cmd {
+	switch k.String() {
+	case "esc", "q":
+		m.moving = nil
+	case "j", "down":
+		m.selC = min(len(m.choices)-1, m.selC+1)
+	case "k", "up":
+		m.selC = max(0, m.selC-1)
+	case "enter":
+		id, to := m.moving.ID, m.choices[m.selC].ID
+		m.moving = nil
+		return m.do(id+" → "+to, func() error { _, err := m.st.MoveItem(id, to); return err })
+	}
+	return nil
 }
 
 // openOverview shows the sittings of a meeting, or of every meeting.
@@ -709,6 +750,10 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "U":
 		return m.undoSitting(sit)
+	case "M":
+		if r != nil && (r.item.State == "proposed" || r.item.State == "accepted" || r.item.State == "deferred") {
+			return m.startMove(r.item)
+		}
 	case "c":
 		if r != nil {
 			scheme, err := m.st.CreateScheme("")

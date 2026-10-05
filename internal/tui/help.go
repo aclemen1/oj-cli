@@ -73,6 +73,17 @@ func (b *helpBuilder) flow(state string) {
 
 func (m *model) helpPanel(w int) []string {
 	b := &helpBuilder{m: m, w: w}
+	if m.moving != nil {
+		b.title(m.tr("OÙ VOUS EN ÊTES", "WHERE YOU ARE"))
+		b.text(m.tr("Choix de la séance où placer "+m.moving.ID+". Seules les séances planifiées (non figées) sont proposées.",
+			"Choosing the sitting for "+m.moving.ID+". Only planned (not frozen) sittings are listed."))
+		b.text(m.tr("Le point garde son état ; un point reporté redevient retenu.", "The item keeps its state; a deferred item becomes accepted."))
+		b.title(m.tr("OPTIONS", "OPTIONS"))
+		b.key("enter", m.tr("déplacer sur la séance choisie", "move to the chosen sitting"))
+		b.key("j k", m.tr("choisir", "choose"))
+		b.key("esc", m.tr("annuler", "cancel"))
+		return b.lines
+	}
 	switch m.view {
 	case vMeetings:
 		m.helpMeetings(b)
@@ -206,6 +217,7 @@ func (m *model) helpAgenda(b *helpBuilder) {
 		}
 		if open && !r.away {
 			b.key("d", m.tr("le reporter à la séance suivante", "defer it to the next sitting"))
+			b.key("M", m.tr("le déplacer sur une autre séance (il garde son état)", "move it to another sitting (it keeps its state)"))
 			b.key("x", m.tr("le retirer (avec une raison)", "drop it (with a reason)"))
 		}
 		if u := m.undoLabel(); u != "" {

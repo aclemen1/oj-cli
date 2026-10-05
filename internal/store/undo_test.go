@@ -121,3 +121,33 @@ func TestDeferredListAndOverviews(t *testing.T) {
 		t.Fatalf("second sitting %+v", next)
 	}
 }
+
+func TestMoveItem(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "A"}, true, ""))
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "B"}, false, ""))
+	// Later, keeping the state.
+	a := must[*Item](t)(s.MoveItem("RDIR-1", "RDIR-2026-10-22"))
+	if a.Sitting != "RDIR-2026-10-22" || a.State != "accepted" {
+		t.Fatalf("move later %+v", a)
+	}
+	// Back earlier.
+	if a = must[*Item](t)(s.MoveItem("RDIR-1", "RDIR-2026-10-08")); a.Sitting != "RDIR-2026-10-08" {
+		t.Fatalf("move earlier %+v", a)
+	}
+	if b := must[*Item](t)(s.MoveItem("RDIR-2", "RDIR-2026-10-15")); b.State != "proposed" {
+		t.Fatalf("a proposal stays proposed %+v", b)
+	}
+	// A deferred item becomes accepted.
+	must[*Item](t)(s.DeferItem("RDIR-1", ""))
+	if a = must[*Item](t)(s.MoveItem("RDIR-1", "RDIR-2026-10-29")); a.State != "accepted" || a.DeferredFrom != "" {
+		t.Fatalf("deferred moved %+v", a)
+	}
+	if _, err := s.MoveItem("RDIR-1", "RDIR-2026-10-29"); kind(err) != "user_error" {
+		t.Fatal("moving to the same sitting is refused")
+	}
+	must[*Changed](t)(s.FreezeSitting("RDIR-2026-10-15", true))
+	if _, err := s.MoveItem("RDIR-1", "RDIR-2026-10-15"); kind(err) != "conflict" {
+		t.Fatalf("frozen target: %v", err)
+	}
+}

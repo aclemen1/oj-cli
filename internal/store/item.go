@@ -419,6 +419,31 @@ func (s *Store) DeferItem(id, to string) (*Item, error) {
 	})
 }
 
+// MoveItem puts an item on another planned sitting of its meeting, earlier or
+// later, keeping its state; a deferred item becomes accepted there.
+func (s *Store) MoveItem(id, to string) (*Item, error) {
+	return s.changeItem(id, "item move", func(it *Item, m *Meeting) error {
+		if it.State != "proposed" && it.State != "accepted" && it.State != "deferred" {
+			return itemConflict(it, "move", "proposed", "accepted", "deferred")
+		}
+		sit, err := s.target(m, to)
+		if err != nil {
+			return err
+		}
+		if sit.ID == it.Sitting {
+			return spec.UserError("item %s is already on %s", it.ID, sit.ID)
+		}
+		from := it.Sitting
+		it.Sitting = sit.ID
+		if it.State == "deferred" {
+			it.State, it.DeferredFrom = "accepted", ""
+		}
+		s.log(&it.Log, "moved from "+orNone(from)+" to "+sit.ID)
+		s.emit("item.moved", it.Meeting, map[string]any{"item": it, "from": from, "to": sit.ID})
+		return nil
+	})
+}
+
 // DropItem withdraws an item.
 func (s *Store) DropItem(id, reason string) (*Item, error) {
 	if strings.TrimSpace(reason) == "" {

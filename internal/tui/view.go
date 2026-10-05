@@ -63,6 +63,21 @@ func (m *model) render() string {
 func (m *model) renderMain() ([]string, string) {
 	var lines []string
 	var help string
+	if m.moving != nil {
+		lines = []string{sBold.Render(m.tr("Déplacer ", "Move ") + m.moving.ID + " · " + m.moving.Title),
+			sMuted.Render(m.tr("vers la séance :", "to the sitting:")), ""}
+		for i, s := range m.choices {
+			line := fmt.Sprintf("  %-20s %s", s.ID, strings.TrimSpace(s.Date+" "+s.Time))
+			if key := strings.TrimPrefix(s.ID, s.Meeting+"-"); len(key) >= 10 && key[:10] != s.Date {
+				line += sMuted.Render(m.tr("  (déplacée)", "  (moved)"))
+			}
+			if i == m.selC {
+				line = selectLine(line, m.w)
+			}
+			lines = append(lines, line)
+		}
+		return lines, helpLine("enter", m.tr("déplacer", "move"), "j/k", m.tr("choisir", "choose"), "esc", m.tr("annuler", "cancel"))
+	}
 	switch m.view {
 	case vMeetings:
 		lines, help = m.renderMeetings(), helpLine("enter", "agenda", "S", "all sittings", "A", "actions", "R", "refresh", "q", "quit")
@@ -74,7 +89,7 @@ func (m *model) renderMain() ([]string, string) {
 		if u := undoSittingLabel(m.agenda); u != "" {
 			pairs = append(pairs, "U", u)
 		}
-		pairs = append(pairs, "J/K", "move", "+/-", "5 min", "e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold",
+		pairs = append(pairs, "M", "move to", "J/K", "order", "+/-", "5 min", "e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold",
 			"m", "minutes", "c", "create ref", "S", "sittings", "[/]", "sitting", "esc", "back")
 		lines, help = m.renderAgenda(), helpLine(pairs...)
 	case vSittings:

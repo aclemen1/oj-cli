@@ -66,6 +66,20 @@ func init() {
 		}),
 	})
 	spec.Register(&spec.Action{
+		Category: "item", Name: "move",
+		Summary: "Put an item on another planned sitting of its meeting, earlier or later, keeping its state.",
+		Discussion: "Unlike defer, the item keeps its state: proposed stays proposed, accepted stays accepted; a deferred item " +
+			"becomes accepted. The target must be planned (reopen a frozen sitting first).",
+		Params: []spec.Param{itemArg(),
+			{Name: "to", Kind: spec.String, Positional: true, Required: true, Help: "Planned sitting, e.g. PSEC-2026-10-22."},
+			sphereParam()},
+		Effects:  []string{"Rewrites the item's sitting."},
+		Examples: []string{"oj item move PSEC-3 PSEC-2026-10-22 --sphere pro"},
+		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+			return st.MoveItem(ctx.Str("id"), ctx.Str("to"))
+		}),
+	})
+	spec.Register(&spec.Action{
 		Category: "item", Name: "undefer",
 		Summary:  "Take back a deferral: the item goes back to the sitting it was deferred from when still open, and is accepted.",
 		Params:   []spec.Param{itemArg(), sphereParam()},

@@ -217,6 +217,7 @@ sitting that did not happen.
 | `item ls [<alias>] [--state] [--owner] [--ref <ref>] [--search <text>]` | lists items; `--ref office:U-0042` finds the item of a dossier |
 | `item show <id>`, `item edit <id> --set <field>=<value>` | reads and edits |
 | `item accept <id>…`, `item defer <id> [--to <sitting>]`, `item drop <id> --reason …` | moves items in their cycle |
+| `item move <id> <sitting>` | puts the item on another planned sitting of its meeting, earlier or later, keeping its state (a deferred item becomes accepted); in the TUI, `M` picks the sitting |
 | `item order <sitting> <id>…` | sets the order; ids not named keep their relative order after |
 | `outcome set <id> [--sitting] [--summary] [--decision] [--action "what\|who\|due"]… [--next done\|deferred] [--by]` | records what came out of an item; `--by agent:<name>` writes a draft |
 | `render <sitting> --doc agenda\|minutes [--to md\|html\|docx\|pdf] [--out]` | renders a document (§8) |
