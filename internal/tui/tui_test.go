@@ -94,7 +94,7 @@ func setup(t *testing.T) (*model, *store.Store, *time.Time) {
 
 func TestMeetingsAndAgenda(t *testing.T) {
 	m, st, _ := setup(t)
-	if s := screen(m); !strings.Contains(s, "RDIR") || !strings.Contains(s, "RDIR-2026-10-08  Thu 2026-10-08  2 on the agenda") || !strings.Contains(s, "1 proposed") {
+	if s := screen(m); !strings.Contains(s, "RDIR") || !strings.Contains(s, "Thu 2026-10-08 · in 3 days") || !strings.Contains(s, "1 proposed") {
 		t.Fatalf("meetings:\n%s", s)
 	}
 	press(t, m, "enter")
@@ -448,16 +448,40 @@ func TestJumpToRef(t *testing.T) {
 
 func TestWeekdays(t *testing.T) {
 	m, st, _ := setup(t)
-	if s := screen(m); !strings.Contains(s, "Thu 2026-10-08") {
+	if s := screen(m); !strings.Contains(s, "Thu 2026-10-08 · in 3 days") {
 		t.Fatalf("english weekday:\n%s", s)
 	}
 	st.Render.Lang = "fr"
 	press(t, m, "enter")
-	if s := screen(m); !strings.Contains(s, "jeu. 2026-10-08 09:00") {
+	if s := screen(m); !strings.Contains(s, "jeu. 2026-10-08 09:00 · dans 3 j") {
 		t.Fatalf("french weekday in the sitting header:\n%s", s)
 	}
 	press(t, m, "S")
-	if s := screen(m); !strings.Contains(s, "jeu. 2026-10-15") {
+	if s := screen(m); !strings.Contains(s, "jeu. 2026-10-15 09:00 · dans 10 j") {
 		t.Fatalf("weekday in the sittings view:\n%s", s)
+	}
+}
+
+func TestRelativeDates(t *testing.T) {
+	m, st, _ := setup(t) // today is Monday 2026-10-05
+	cases := map[string][2]string{
+		"2026-10-05": {"aujourd'hui", "today"},
+		"2026-10-06": {"demain", "tomorrow"},
+		"2026-10-04": {"hier", "yesterday"},
+		"2026-10-15": {"dans 10 j", "in 10 days"},
+		"2026-09-30": {"il y a 5 j", "5 days ago"},
+		"2026-10-26": {"dans 3 sem.", "in 3 weeks"},
+		"2026-08-31": {"il y a 5 sem.", "5 weeks ago"},
+	}
+	for d, want := range cases {
+		day, _ := time.Parse("2006-01-02", d)
+		st.Render.Lang = "fr"
+		if got := m.relative(day); got != want[0] {
+			t.Errorf("%s fr: %q, want %q", d, got, want[0])
+		}
+		st.Render.Lang = ""
+		if got := m.relative(day); got != want[1] {
+			t.Errorf("%s en: %q, want %q", d, got, want[1])
+		}
 	}
 }
