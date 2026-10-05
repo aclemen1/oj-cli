@@ -9,6 +9,7 @@ import (
 	"github.com/aclemen1/ordo-cli/internal/actions"
 	_ "github.com/aclemen1/ordo-cli/internal/mcpserver"
 	"github.com/aclemen1/ordo-cli/internal/spec"
+	_ "github.com/aclemen1/ordo-cli/internal/tui"
 )
 
 const rootHelp = `ordo — the agenda of meetings: items, sittings, outcomes, minutes.

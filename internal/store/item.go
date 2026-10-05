@@ -52,6 +52,7 @@ type ActionItem struct {
 	Who  string `yaml:"who,omitempty" json:"who,omitempty"`
 	Due  string `yaml:"due,omitempty" json:"due,omitempty"`
 	Ref  string `yaml:"ref,omitempty" json:"ref,omitempty"`
+	Done bool   `yaml:"done,omitempty" json:"done,omitempty"`
 }
 
 var ItemStates = []string{"proposed", "accepted", "deferred", "done", "dropped"}
@@ -556,6 +557,15 @@ func (s *Store) SetOutcome(id, sitting string, in OutcomeInput) (*Item, error) {
 		o := &Outcome{Summary: in.Summary, Decision: in.Decision, Actions: actions, Next: in.Next,
 			By: in.By, Status: status, At: s.Now().Format(time.RFC3339)}
 		if e := it.entry(sid); e != nil {
+			if e.Outcome != nil {
+				done := map[string]bool{}
+				for _, a := range e.Outcome.Actions {
+					done[a.What] = a.Done
+				}
+				for i := range o.Actions {
+					o.Actions[i].Done = done[o.Actions[i].What]
+				}
+			}
 			e.Outcome = o
 		} else {
 			it.History = append(it.History, Entry{Sitting: sid, Outcome: o})

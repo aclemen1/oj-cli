@@ -274,6 +274,33 @@ func TestHandEditedFileIsRead(t *testing.T) {
 	}
 }
 
+func TestActions(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget"}, true, ""))
+	must[*Item](t)(s.SetOutcome("RDIR-1", "", OutcomeInput{Decision: "Approuvé",
+		Actions: []string{"Envoyer|Marie|2026-10-20", "Informer l'équipe|Paul|", "Archiver||2026-10-09"}}))
+	l := must[[]ActionRow](t)(s.Actions(ActionFilter{}))
+	if len(l) != 3 || l[0].What != "Archiver" || l[2].Due != "" {
+		t.Fatalf("order by due: %+v", l)
+	}
+	if mine := must[[]ActionRow](t)(s.Actions(ActionFilter{Who: "marie"})); len(mine) != 1 || mine[0].N != 1 {
+		t.Fatalf("by who: %+v", mine)
+	}
+	must[*Item](t)(s.SetActionDone("RDIR-1", "", 1, true))
+	if open := must[[]ActionRow](t)(s.Actions(ActionFilter{})); len(open) != 2 {
+		t.Fatalf("open after done: %d", len(open))
+	}
+	// Rewriting the outcome keeps what is done.
+	must[*Item](t)(s.SetOutcome("RDIR-1", "", OutcomeInput{Decision: "Approuvé tel quel",
+		Actions: []string{"Envoyer|Marie|2026-10-20", "Informer l'équipe|Paul|"}}))
+	if done := must[[]ActionRow](t)(s.Actions(ActionFilter{State: "done"})); len(done) != 1 || done[0].What != "Envoyer" {
+		t.Fatalf("done kept: %+v", done)
+	}
+	if _, err := s.SetActionDone("RDIR-1", "", 9, true); kind(err) != "not_found" {
+		t.Fatalf("missing action: %v", err)
+	}
+}
+
 func TestImportTasks(t *testing.T) {
 	s := withRDIR(t)
 	raw := []byte(`{"items": [

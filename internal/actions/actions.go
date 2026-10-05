@@ -29,7 +29,9 @@ func sphereParam() spec.Param {
 	return spec.Param{Name: "sphere", Kind: spec.String, Help: "Sphere to act in, e.g. pro. Defaults to $ORDO_SPHERE."}
 }
 
-// open returns the store of the call's sphere.
+// Open returns the store of the call's sphere.
+func Open(ctx *spec.Context) (*store.Store, error) { return open(ctx) }
+
 func open(ctx *spec.Context) (*store.Store, error) {
 	cfg, err := config.Load(ctx.Config)
 	if err != nil {

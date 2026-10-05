@@ -217,7 +217,8 @@ sitting that did not happen.
 | `item order <sitting> <id>…` | sets the order; ids not named keep their relative order after |
 | `outcome set <id> [--sitting] [--summary] [--decision] [--action "what\|who\|due"]… [--next done\|deferred] [--by]` | records what came out of an item; `--by agent:<name>` writes a draft |
 | `render <sitting> --doc agenda\|minutes [--to md\|html\|docx\|pdf] [--out]` | renders a document (§8) |
-| `actions ls [--who] [--open] [--due-before]` | open actions across sittings of a meeting or the sphere |
+| `actions ls [<alias>] [--who] [--state open\|done\|all] [--due-before]` | actions across sittings of a meeting or the sphere, open first by due date |
+| `actions done <item> <n> [--sitting] [--undo]` | marks action n of an outcome done, or open again; rewriting the outcome keeps it |
 
 Every action takes `--sphere` (or `ORDO_SPHERE`) and returns the envelope.
 Errors name the canonical invocation, echo the offending values and show an
@@ -340,11 +341,11 @@ ordo import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 
 | View | Shows | Actions |
 |---|---|---|
-| Meetings | alias, next sitting, items proposed and accepted, open actions | open |
-| Agenda | the next sitting: ordered items, slots, total against duration, proposed items apart | accept, defer, drop, move up/down, edit duration, freeze, render |
-| Item | fields, attachments, refs, history across sittings | edit in `$EDITOR`, open a ref |
-| Sitting (live) | the current item, a timer per item, elapsed against plan | record outcome, next item, hold |
-| Actions | open actions by owner and due date | mark done |
+| Meetings | alias, next sitting, items on the agenda and proposed | open (`enter`), actions (`A`) |
+| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
+| Item | fields, notes, history with outcomes and actions, log | `e` edit in `$EDITOR` (then committed) |
+| Sitting (live) | the current item, a timer per item, elapsed against plan | `space` timer, `n`/`p` item, `s` summary, `D` decision, `t` action, `-` defer, `h` hold |
+| Actions | actions by due date, overdue in red | `space` done or open, `o` show done |
 
 ## 12. Configuration
 
@@ -375,7 +376,8 @@ A meeting's own settings live in its `meeting.md`.
 3. **MCP**: `ordo mcp`, resources. (Written 5 October 2026.)
 4. **Calendars**: `ics` and `command` providers, reconciliation, `sync`.
 5. **Hooks**.
-6. **TUI**, live sitting view included.
+6. **TUI**, live sitting view included. (Written 5 October 2026, with
+   `actions ls` and `actions done`; the timer lives in the TUI's memory only.)
 7. **Import** from Google Tasks. (Written 5 October 2026: replayable, refs
    `gtasks:<id>` and `gmail:message/<id>`, due date kept in the notes.)
 
