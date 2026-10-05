@@ -169,6 +169,7 @@ func (s *Store) Sync(alias string, events []calendar.Event, from, to time.Time) 
 					if len(moved) > 0 {
 						out.Changes[len(out.Changes)-1].What += ", items moved: " + strings.Join(moved, ", ")
 					}
+					s.emit("sitting.cancelled", m.Alias, map[string]any{"sitting": sit, "moved": moved, "source": "calendar"})
 					if err := s.saveSitting(sit); err != nil {
 						return "", err
 					}
@@ -201,6 +202,7 @@ func (s *Store) Sync(alias string, events []calendar.Event, from, to time.Time) 
 			}
 			sit.Event = e.UID
 			note(sit, strings.Join(what, ", "))
+			s.emit("sitting.moved", m.Alias, map[string]any{"sitting": sit, "source": "calendar"})
 			if err := s.saveSitting(sit); err != nil {
 				return "", err
 			}

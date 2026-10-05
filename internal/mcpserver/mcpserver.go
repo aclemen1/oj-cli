@@ -72,17 +72,27 @@ func served(a *spec.Action) bool {
 	return a.Run != nil && a.Category != "setup" && a.Category != "meta"
 }
 
+// warned is a result with the warnings of its action.
+type warned struct {
+	result   any
+	warnings []string
+}
+
 func envelope(v any, err error) *mcp.CallToolResult {
 	var b []byte
 	if err != nil {
 		b, _ = json.MarshalIndent(map[string]any{"ok": false, "error": spec.Internal(err)}, "", "  ")
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(b)}}, IsError: true}
 	}
-	if v == nil {
-		b, _ = json.Marshal(map[string]any{"ok": true})
-	} else {
-		b, _ = json.MarshalIndent(map[string]any{"ok": true, "result": v}, "", "  ")
+	env := map[string]any{"ok": true}
+	if w, ok := v.(warned); ok {
+		v = w.result
+		env["warnings"] = w.warnings
 	}
+	if v != nil {
+		env["result"] = v
+	}
+	b, _ = json.MarshalIndent(env, "", "  ")
 	return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(b)}}}
 }
 
@@ -188,7 +198,12 @@ func call(cfgPath string, a *spec.Action, spheres []string, in map[string]any) (
 	if err != nil {
 		return nil, err
 	}
-	return a.Run(&spec.Context{Args: args, Config: cfgPath, Spheres: spheres, Format: "json"})
+	ctx := &spec.Context{Args: args, Config: cfgPath, Spheres: spheres, Format: "json"}
+	res, err := a.Run(ctx)
+	if err == nil && len(ctx.Warnings) > 0 {
+		return warned{res, ctx.Warnings}, nil
+	}
+	return res, err
 }
 
 func resource(cfgPath string, spheres []string, uri string) (any, error) {

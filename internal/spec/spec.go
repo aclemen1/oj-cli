@@ -66,7 +66,11 @@ type Context struct {
 	Stdout io.Writer
 	// Spheres limits a call that comes through MCP. Nil: every configured sphere.
 	Spheres []string
+	// Warnings: what went wrong after the action succeeded (a hook, a commit).
+	Warnings []string
 }
+
+func (c *Context) Warn(m string) { c.Warnings = append(c.Warnings, m) }
 
 func (c *Context) Str(name string) string {
 	if v, ok := c.Args[name].(string); ok {
@@ -321,9 +325,15 @@ func Usage(a *Action) string {
 type Streamed struct{}
 
 // Emit writes the envelope (or text) to w and returns the process exit code.
-func Emit(w, errw io.Writer, a *Action, format string, result any, err error) int {
+// Warnings go into the envelope, or to errw in text.
+func Emit(w, errw io.Writer, a *Action, format string, result any, err error, warnings ...string) int {
 	if _, ok := result.(Streamed); ok && err == nil {
 		return 0
+	}
+	if format == "text" || (format == "" && a != nil && a.Meta) {
+		for _, m := range warnings {
+			fmt.Fprintf(errw, "warning: %s\n", m)
+		}
 	}
 	if format == "" {
 		format = "json"
@@ -353,11 +363,14 @@ func Emit(w, errw io.Writer, a *Action, format string, result any, err error) in
 		}
 		return 0
 	}
-	if result == nil {
-		writeJSON(w, map[string]any{"ok": true})
-	} else {
-		writeJSON(w, map[string]any{"ok": true, "result": result})
+	env := map[string]any{"ok": true}
+	if result != nil {
+		env["result"] = result
 	}
+	if len(warnings) > 0 {
+		env["warnings"] = warnings
+	}
+	writeJSON(w, env)
 	return 0
 }
 

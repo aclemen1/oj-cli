@@ -275,6 +275,7 @@ func (s *Store) addItem(m *Meeting, sit *Sitting, in ItemInput, accept bool) (*I
 		it.State = "accepted"
 	}
 	s.log(&it.Log, it.State+" for "+orNone(it.Sitting))
+	s.emit("item.added", m.Alias, map[string]any{"item": it})
 	return it, s.saveItem(it)
 }
 
@@ -339,6 +340,7 @@ func (s *Store) AcceptItems(ids []string) ([]*Item, error) {
 			if err := s.saveItem(it); err != nil {
 				return err
 			}
+			s.emit("item.accepted", it.Meeting, map[string]any{"item": it})
 			out = append(out, it)
 		}
 		return nil
@@ -378,6 +380,7 @@ func (s *Store) DeferItem(id, to string) (*Item, error) {
 			it.State = "deferred"
 		}
 		s.log(&it.Log, "deferred from "+orNone(from)+" to "+orNone(it.Sitting))
+		s.emit("item.deferred", it.Meeting, map[string]any{"item": it, "from": from, "to": it.Sitting})
 		return nil
 	})
 }
@@ -393,6 +396,7 @@ func (s *Store) DropItem(id, reason string) (*Item, error) {
 		}
 		it.State, it.Reason = "dropped", reason
 		s.log(&it.Log, "dropped: "+reason)
+		s.emit("item.dropped", it.Meeting, map[string]any{"item": it, "reason": reason})
 		return nil
 	})
 }
@@ -556,11 +560,13 @@ func (s *Store) SetOutcome(id, sitting string, in OutcomeInput) (*Item, error) {
 		}
 		o := &Outcome{Summary: in.Summary, Decision: in.Decision, Actions: actions, Next: in.Next,
 			By: in.By, Status: status, At: s.Now().Format(time.RFC3339)}
+		done := map[string]bool{}
+		known := map[string]bool{}
 		if e := it.entry(sid); e != nil {
 			if e.Outcome != nil {
-				done := map[string]bool{}
 				for _, a := range e.Outcome.Actions {
 					done[a.What] = a.Done
+					known[a.What] = true
 				}
 				for i := range o.Actions {
 					o.Actions[i].Done = done[o.Actions[i].What]
@@ -571,6 +577,12 @@ func (s *Store) SetOutcome(id, sitting string, in OutcomeInput) (*Item, error) {
 			it.History = append(it.History, Entry{Sitting: sid, Outcome: o})
 		}
 		s.log(&it.Log, "outcome "+status+" for "+sid)
+		s.emit("outcome.set", it.Meeting, map[string]any{"item": it, "sitting": sid, "outcome": o})
+		for _, a := range o.Actions {
+			if !known[a.What] {
+				s.emit("action.added", it.Meeting, map[string]any{"item": it, "sitting": sid, "action": a})
+			}
+		}
 		return nil
 	})
 }

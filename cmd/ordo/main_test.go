@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -89,6 +90,19 @@ func TestCLIErrors(t *testing.T) {
 	code, _, raw = c.run("sitting", "ls", "--sphere", "perso")
 	if code != spec.ExitUsage || !strings.Contains(raw, "configured: pro") {
 		t.Fatalf("unknown sphere: %d %s", code, raw)
+	}
+}
+
+func TestCLIHookWarning(t *testing.T) {
+	c := newCLI(t)
+	b, _ := os.ReadFile(c.config)
+	cfg := strings.Replace(string(b), "vcs: none", "vcs: none\n        hooks:\n            - on: [item.added]\n              run: [\"false\"]", 1)
+	os.WriteFile(c.config, []byte(cfg), 0o644)
+	c.ok("meeting", "add", "RDIR", "--title", "Séance", "--sphere", "pro")
+	code, env, raw := c.run("item", "add", "RDIR", "Budget", "--sphere", "pro")
+	w, _ := env["warnings"].([]any)
+	if code != 0 || len(w) != 1 || !strings.Contains(w[0].(string), "hook false on item.added") {
+		t.Fatalf("hook warning: %d %s", code, raw)
 	}
 }
 

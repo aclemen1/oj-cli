@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/textinput"
@@ -108,6 +109,7 @@ type model struct {
 	w, h      int
 	status    string
 	statusErr bool
+	warnings  warnings
 }
 
 func newModel(st *store.Store) *model {
@@ -115,7 +117,30 @@ func newModel(st *store.Store) *model {
 	styles := in.Styles()
 	styles.Cursor.Blink = false
 	in.SetStyles(styles)
-	return &model{st: st, now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}}}
+	m := &model{st: st, now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}}}
+	st.Warn = m.warnings.add
+	return m
+}
+
+// warnings collects what a store change reports after it succeeded; the
+// changes run in commands, so the list is locked.
+type warnings struct {
+	mu   sync.Mutex
+	list []string
+}
+
+func (w *warnings) add(m string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.list = append(w.list, m)
+}
+
+func (w *warnings) take() []string {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	l := w.list
+	w.list = nil
+	return l
 }
 
 // ------------------------------------------------------------------ messages
@@ -285,6 +310,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case doneMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
+		} else if w := m.warnings.take(); len(w) > 0 {
+			m.setStatus(msg.status+" — "+strings.Join(w, "; "), true)
 		} else {
 			m.setStatus(msg.status, false)
 		}

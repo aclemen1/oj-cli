@@ -63,6 +63,7 @@ func open(ctx *spec.Context) (*store.Store, error) {
 	if clock != nil {
 		st.Now = clock
 	}
+	st.Warn = ctx.Warn
 	return st, nil
 }
 

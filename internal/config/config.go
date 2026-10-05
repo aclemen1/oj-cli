@@ -19,6 +19,15 @@ type Sphere struct {
 	Root   string       `yaml:"root"`
 	VCS    string       `yaml:"vcs,omitempty"` // jj (default), git, none
 	Render SphereRender `yaml:"render,omitempty"`
+	Hooks  []Hook       `yaml:"hooks,omitempty"`
+}
+
+// Hook runs a command on events of a sphere's meetings.
+type Hook struct {
+	On       []string `yaml:"on"`                 // event names, or *
+	Meetings []string `yaml:"meetings,omitempty"` // aliases; empty: every meeting
+	Run      []string `yaml:"run"`
+	Timeout  string   `yaml:"timeout,omitempty"` // default 30s
 }
 
 // SphereRender: documents of a sphere.

@@ -80,8 +80,9 @@ func run(argv []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	if err != nil {
 		return spec.Emit(stdout, stderr, act, format, nil, err)
 	}
-	result, err := act.Run(&spec.Context{Args: parsed, Config: configFlag, Format: format, Stdin: stdin, Stdout: stdout})
-	return spec.Emit(stdout, stderr, act, format, result, err)
+	ctx := &spec.Context{Args: parsed, Config: configFlag, Format: format, Stdin: stdin, Stdout: stdout}
+	result, err := act.Run(ctx)
+	return spec.Emit(stdout, stderr, act, format, result, err, ctx.Warnings...)
 }
 
 func printRoot(w io.Writer) {

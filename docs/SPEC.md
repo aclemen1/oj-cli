@@ -280,26 +280,39 @@ meets: a sitting moved in the calendar is moved in `ordo`.
 
 ## 7. Hooks
 
-`ordo` announces events to commands named in the configuration. A hook
-receives the event as JSON on standard input and runs with the sphere in
-`ORDO_SPHERE`. A failing hook is logged and reported in the action's result;
-it never undoes the action.
+`ordo` announces events to commands named in the sphere's configuration. A
+hook receives the event as JSON on standard input — `event`, `sphere`,
+`meeting`, `at`, `by` and the payload — with `ORDO_SPHERE`, `ORDO_EVENT`,
+`ORDO_MEETING` and `ORDO_HOOK_DEPTH` in its environment, in the store's
+directory, with a timeout (30 s by default).
+
+- Hooks run after the commit, once the lock is released, so a hook may call
+  `ordo` again. A hook started from a hook has a greater depth; at depth 3
+  hooks are skipped.
+- A failing hook never undoes the action: the action succeeds and the
+  failure comes back in `warnings` of the envelope (stderr in text).
 
 | Event | Payload | Typical use |
 |---|---|---|
-| `item.added`, `item.accepted`, `item.deferred`, `item.dropped` | item | tell the dossier the item came from |
-| `outcome.set` | item, outcome | tell the dossier what was decided |
-| `sitting.frozen` | sitting, rendered agenda path | deposit the agenda in an artefact store |
-| `sitting.minuted` | sitting, rendered minutes path, outcomes | deposit the minutes; remember the decisions |
-| `action.added` | action, item | open a dossier for the action |
+| `item.added`, `item.accepted`, `item.dropped` | item (and reason) | tell the dossier the item came from |
+| `item.deferred`, `item.moved` | item, from, to | tell the dossier its item moved |
+| `outcome.set` | item, sitting, outcome | tell the dossier what was decided |
+| `action.added` | item, sitting, action — only for an action new in the outcome | open a dossier for the action |
+| `sitting.moved`, `sitting.cancelled` | sitting (moved items; `source: calendar` from a sync) | tell the meeting's dossier |
+| `sitting.frozen` | sitting, rendered agenda path, items | deposit the agenda in an artefact store |
+| `sitting.held` | sitting | |
+| `sitting.minuted` | sitting, rendered minutes path, done, deferred | deposit the minutes; remember the decisions |
 
-Hooks are filtered by meeting and event:
+Hooks are filtered by event (`*` for all) and by meeting:
 
 ```yaml
-hooks:
-  - on: [outcome.set]
-    meetings: [RDIR, OPS]
-    run: office-notify-from-ordo
+spheres:
+  pro:
+    hooks:
+      - on: [outcome.set, item.deferred]
+        meetings: [RDIR, OPS]
+        run: ["office-notify-from-ordo"]
+        timeout: 20s
 ```
 
 ## 8. Rendering
@@ -399,7 +412,7 @@ A meeting's own settings live in its `meeting.md`.
 3. **MCP**: `ordo mcp`, resources. (Written 5 October 2026.)
 4. **Calendars**: `ics` and `command` providers, reconciliation, `sync`.
    (Written 5 October 2026.)
-5. **Hooks**.
+5. **Hooks**. (Written 5 October 2026.)
 6. **TUI**, live sitting view included. (Written 5 October 2026, with
    `actions ls` and `actions done`; the timer lives in the TUI's memory only.)
 7. **Import** from Google Tasks. (Written 5 October 2026: replayable, refs

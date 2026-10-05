@@ -396,6 +396,7 @@ func (s *Store) MoveSitting(id, date, at string) (*Sitting, error) {
 			sit.Time = at
 		}
 		s.log(&sit.Log, "moved to "+strings.TrimSpace(sit.Date+" "+sit.Time))
+		s.emit("sitting.moved", sit.Meeting, map[string]any{"sitting": sit})
 		return nil
 	})
 }
@@ -424,6 +425,7 @@ func (s *Store) moveOn(m *Meeting, from *Sitting, states ...string) ([]string, e
 		if err := s.saveItem(it); err != nil {
 			return nil, err
 		}
+		s.emit("item.moved", m.Alias, map[string]any{"item": it, "from": from.ID, "to": target})
 		moved = append(moved, it.ID)
 	}
 	return moved, nil
@@ -453,6 +455,7 @@ func (s *Store) CancelSitting(id, reason string) (*Changed, error) {
 		s.log(&sit.Log, "cancelled "+reason)
 		var err error
 		out.Moved, err = s.moveOn(m, sit, "proposed", "accepted", "deferred")
+		s.emit("sitting.cancelled", sit.Meeting, map[string]any{"sitting": sit, "moved": out.Moved})
 		return err
 	})
 	out.Sitting = sit
@@ -486,8 +489,11 @@ func (s *Store) FreezeSitting(id string, leaveProposed bool) (*Changed, error) {
 		sit.Order = ids(on)
 		sit.State = "frozen"
 		s.log(&sit.Log, "frozen")
-		out.Rendered, err = s.renderFinal(sit, m, "agenda")
-		return err
+		if out.Rendered, err = s.renderFinal(sit, m, "agenda"); err != nil {
+			return err
+		}
+		s.emit("sitting.frozen", sit.Meeting, map[string]any{"sitting": sit, "rendered": out.Rendered, "items": ids(on)})
+		return nil
 	})
 	out.Sitting = sit
 	return out, err
@@ -524,6 +530,7 @@ func (s *Store) HoldSitting(id string, present, excused []string) (*Sitting, err
 			sit.Excused = excused
 		}
 		s.log(&sit.Log, "held")
+		s.emit("sitting.held", sit.Meeting, map[string]any{"sitting": sit})
 		return nil
 	})
 }
@@ -577,6 +584,7 @@ func (s *Store) MinuteSitting(id string) (*Minuted, error) {
 				e.Result, it.State, it.Sitting = "deferred", "deferred", target
 				s.log(&it.Log, "deferred from "+sit.ID+" to "+orNone(target))
 				out.Deferred = append(out.Deferred, it.ID)
+				s.emit("item.deferred", it.Meeting, map[string]any{"item": it, "from": sit.ID, "to": target})
 			}
 			if err := s.saveItem(it); err != nil {
 				return err
@@ -587,8 +595,12 @@ func (s *Store) MinuteSitting(id string) (*Minuted, error) {
 		}
 		sit.State = "minuted"
 		s.log(&sit.Log, "minuted")
-		out.Rendered, err = s.renderFinal(sit, m, "minutes")
-		return err
+		if out.Rendered, err = s.renderFinal(sit, m, "minutes"); err != nil {
+			return err
+		}
+		s.emit("sitting.minuted", sit.Meeting, map[string]any{"sitting": sit, "rendered": out.Rendered,
+			"done": out.Done, "deferred": out.Deferred})
+		return nil
 	})
 	out.Sitting = sit
 	return out, err

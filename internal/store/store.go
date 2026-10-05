@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -30,6 +31,11 @@ type Store struct {
 	// Render and Tools set how documents are rendered.
 	Render config.SphereRender
 	Tools  config.Render
+	// Hooks run on the events of this sphere.
+	Hooks []config.Hook
+
+	mu      sync.Mutex
+	pending []hookEvent
 }
 
 type LogEntry struct {
@@ -55,7 +61,7 @@ func Open(cfg *config.Config, sphere, by string) (*Store, error) {
 	}
 	return &Store{Sphere: sphere, Root: s.Root, VCS: s.VCS, By: by, Now: time.Now,
 		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "ordo: warning: "+m) },
-		Render: s.Render, Tools: cfg.Render}, nil
+		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks}, nil
 }
 
 // Init creates the store directory and, with a VCS, its repository.
@@ -98,25 +104,38 @@ func (s *Store) Write(msg string, fn func() error) error {
 	return s.writeAs(func() (string, error) { return msg, fn() })
 }
 
-// writeAs is Write with a commit message known only once fn has run.
+// writeAs is Write with a commit message known only once fn has run. The
+// events fn emits run their hooks after the commit, once the lock is released:
+// a hook may call ordo again.
 func (s *Store) writeAs(fn func() (string, error)) error {
-	f, err := os.OpenFile(filepath.Join(s.Root, ".ordo", "lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	events, err := s.locked(fn)
 	if err != nil {
 		return err
+	}
+	s.fire(events)
+	return nil
+}
+
+func (s *Store) locked(fn func() (string, error)) ([]hookEvent, error) {
+	f, err := os.OpenFile(filepath.Join(s.Root, ".ordo", "lock"), os.O_CREATE|os.O_RDWR, 0o644)
+	if err != nil {
+		return nil, err
 	}
 	defer f.Close()
 	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
-		return spec.Locked("cannot lock the store of %s: %v", s.Sphere, err)
+		return nil, spec.Locked("cannot lock the store of %s: %v", s.Sphere, err)
 	}
 	defer syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+	s.takePending()
 	msg, err := fn()
+	events := s.takePending()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if msg != "" {
 		s.commit(msg)
 	}
-	return nil
+	return events, nil
 }
 
 func (s *Store) commit(msg string) {
