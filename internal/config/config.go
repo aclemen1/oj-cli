@@ -28,6 +28,10 @@ type Sphere struct {
 // prints a short text about the target.
 type RefSource struct {
 	Show []string `yaml:"show"`
+	// Create makes a target for an item (e.g. an office dossier) and prints its id
+	// (plain, or JSON with result.id); Link then attaches it ({id}, {meeting_ref}).
+	Create []string `yaml:"create,omitempty"`
+	Link   []string `yaml:"link,omitempty"`
 }
 
 // Hook runs a command on events of a sphere's meetings.

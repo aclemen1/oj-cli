@@ -52,6 +52,20 @@ func init() {
 		}),
 	})
 	spec.Register(&spec.Action{
+		Category: "item", Name: "create-ref",
+		Summary: "Create a target for an item with the sphere's command (e.g. an office dossier) and add its ref.",
+		Discussion: "Runs refs.<scheme>.create of the sphere with {title}, {item}, {meeting}, {meeting_ref}, {sitting}, {notes}, {expected}; " +
+			"reads the new id, adds <scheme>:<id> to the item, then runs refs.<scheme>.link with {id}. " +
+			"An item that already has a ref of the scheme keeps it (known: true). Create a dossier only when the item needs follow-up.",
+		Params: []spec.Param{itemArg(), sphereParam(),
+			{Name: "scheme", Kind: spec.String, Default: "office", Help: "Ref scheme whose create command to run."}},
+		Effects:  []string{"Runs the sphere's create and link commands; adds the ref to the item."},
+		Examples: []string{"ordo item create-ref PSEC-3 --sphere pro"},
+		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+			return st.CreateRef(ctx.Str("id"), ctx.Str("scheme"))
+		}),
+	})
+	spec.Register(&spec.Action{
 		Category: "item", Name: "undefer",
 		Summary:  "Take back a deferral: the item goes back to the sitting it was deferred from when still open, and is accepted.",
 		Params:   []spec.Param{itemArg(), sphereParam()},

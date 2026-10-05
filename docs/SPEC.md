@@ -211,6 +211,7 @@ sitting that did not happen.
 | `sitting hold <sitting> [--present …] [--excused …]` | the sitting took place |
 | `sitting minute <sitting>` | approves the minutes, defers what is left, renders the minutes |
 | `sitting unhold <sitting>`, `sitting unminute <sitting>`, `sitting restore <sitting>` | take back a hold (frozen again, or planned), approved minutes (held again, items back as before, agent outcomes drafts again, rendered minutes removed; refused if an item changed since), a cancellation (planned again) |
+| `item create-ref <id> [--scheme office]` | creates a target for the item with the sphere's `refs.<scheme>.create` command (e.g. a dossier), adds its ref, then runs `refs.<scheme>.link` |
 | `item restore <id> [--accept]`, `item undefer <id>` | take back a drop (proposed, or accepted) or a done (on the agenda again); take back a deferral (back to the sitting it came from when still open, accepted) |
 | `item add <alias> <title> [--owner] [--kind] [--duration] [--expected] [--attach]… [--ref]… [--sitting] [--accept]` | proposes an item (accepted at once with `--accept`); returns its id |
 | `item ls [<alias>] [--state] [--owner] [--ref <ref>] [--search <text>]` | lists items; `--ref office:U-0042` finds the item of a dossier |
@@ -409,6 +410,13 @@ Hooks belong to a sphere, so a hook of one sphere never sees another.
 selected item, rendered as Markdown and refreshed after a minute (item
 notes are rendered as Markdown too), and `ordo item show --with-refs`
 returns it to agents. Refs of a scheme with no command stay plain text.
+
+A scheme can also say how to create a target for an item (`create`, which
+prints the new id, plain or as JSON `result.id`) and how to attach it
+(`link`, with `{id}` and `{meeting_ref}`, the id of the meeting's own ref of
+that scheme). `item add` with a ref that an open item of the meeting already
+carries returns that item: a tool that registers the new target as an item
+finds the existing one.
 
 A meeting's own settings live in its `meeting.md`.
 

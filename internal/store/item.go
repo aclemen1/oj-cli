@@ -239,6 +239,10 @@ func (s *Store) AddItem(alias string, in ItemInput, accept bool, sitting string)
 		if err != nil {
 			return "", err
 		}
+		if known, err := s.openItemWithRef(m.Alias, in.Refs); err != nil || known != nil {
+			it = known
+			return "", err
+		}
 		var sit *Sitting
 		if sitting != "" {
 			if sit, err = s.target(m, sitting); err != nil {
@@ -253,6 +257,29 @@ func (s *Store) AddItem(alias string, in ItemInput, accept bool, sitting string)
 		return "item add " + it.ID, s.saveMeeting(m)
 	})
 	return it, err
+}
+
+// openItemWithRef finds an item of the meeting, not done nor dropped, that
+// already carries one of the refs: adding it again returns that item.
+func (s *Store) openItemWithRef(alias string, refs []string) (*Item, error) {
+	if len(refs) == 0 {
+		return nil, nil
+	}
+	all, err := s.items(alias)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range all {
+		if it.State == "done" || it.State == "dropped" {
+			continue
+		}
+		for _, r := range refs {
+			if contains(it.Refs, r) {
+				return it, nil
+			}
+		}
+	}
+	return nil, nil
 }
 
 // addItem writes a new item of m, under a lock the caller holds; the caller saves m.

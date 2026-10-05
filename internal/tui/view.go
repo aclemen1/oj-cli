@@ -26,7 +26,7 @@ func (m *model) render() string {
 	case vAgenda:
 		lines, help = m.renderAgenda(), helpLine("n", "new", "a", "accept", "d", "defer", "x", "drop", "J/K", "move", "+/-", "5 min",
 			"e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold", "m", "minutes", "u", "undo item", "U", "undo sitting",
-			"[/]", "sitting", "esc", "back")
+			"c", "dossier", "[/]", "sitting", "esc", "back")
 	case vItem:
 		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
 	case vLive:

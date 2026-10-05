@@ -592,6 +592,21 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "U":
 		return m.undoSitting(sit)
+	case "c":
+		if r != nil {
+			if !m.st.CanCreateRef("office") {
+				m.setStatus("no refs.office.create in the sphere's configuration", true)
+				return nil
+			}
+			id := r.item.ID
+			return m.do("dossier for "+id, func() error {
+				c, err := m.st.CreateRef(id, "office")
+				if err == nil && c.Known {
+					return fmt.Errorf("%s already has %s", id, c.Ref)
+				}
+				return err
+			})
+		}
 	case "[", "]":
 		return m.step(k.String() == "]")
 	case "l":
