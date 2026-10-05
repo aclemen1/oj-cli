@@ -316,8 +316,15 @@ func Usage(a *Action) string {
 	return strings.Join(parts, " ")
 }
 
+// Streamed is returned by an action that used Stdout itself (a server):
+// no envelope follows.
+type Streamed struct{}
+
 // Emit writes the envelope (or text) to w and returns the process exit code.
 func Emit(w, errw io.Writer, a *Action, format string, result any, err error) int {
+	if _, ok := result.(Streamed); ok && err == nil {
+		return 0
+	}
 	if format == "" {
 		format = "json"
 		if a != nil && a.Meta {

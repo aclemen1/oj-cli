@@ -237,8 +237,13 @@ example.
 ### 5.3 Surfaces
 
 The actions are defined once (action specs) and served as CLI commands and as
-MCP tools (one tool per action). Sittings and items are also MCP resources
-`ordo://<sphere>/<id>`.
+MCP tools (one tool per action, named `<category>_<action>`: `item_add`).
+Sittings and items are also MCP resources `ordo://<sphere>/<id>`.
+
+- `ordo mcp --spheres <list>` serves only those spheres; with one sphere,
+  `sphere` defaults to it.
+- Everything done through MCP is logged as `agent:…`, and an outcome set
+  through MCP is always a draft: a `by` without the `agent:` prefix gets it.
 
 ## 6. Dates and calendars
 
@@ -367,7 +372,7 @@ A meeting's own settings live in its `meeting.md`.
    outcomes, `schema`, `skill`, CLI. Tests on a throwaway store.
    (Written 5 October 2026; `actions ls` comes with the TUI.)
 2. **Render**: Markdown and HTML agenda and minutes, templates, pandoc.
-3. **MCP**: `ordo mcp`, resources.
+3. **MCP**: `ordo mcp`, resources. (Written 5 October 2026.)
 4. **Calendars**: `ics` and `command` providers, reconciliation, `sync`.
 5. **Hooks**.
 6. **TUI**, live sitting view included.

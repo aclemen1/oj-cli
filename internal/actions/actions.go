@@ -50,7 +50,11 @@ func open(ctx *spec.Context) (*store.Store, error) {
 	if ctx.Spheres != nil && !contains(ctx.Spheres, sphere) {
 		return nil, spec.Forbidden("sphere %q is not served here; served: %s", sphere, strings.Join(ctx.Spheres, ", "))
 	}
-	st, err := store.Open(cfg, sphere, os.Getenv("ORDO_BY"))
+	by := os.Getenv("ORDO_BY")
+	if ctx.Spheres != nil && !strings.HasPrefix(by, "agent:") {
+		by = "agent:mcp"
+	}
+	st, err := store.Open(cfg, sphere, by)
 	if err != nil {
 		return nil, err
 	}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/aclemen1/ordo-cli/internal/actions"
+	_ "github.com/aclemen1/ordo-cli/internal/mcpserver"
 	"github.com/aclemen1/ordo-cli/internal/spec"
 )
 
