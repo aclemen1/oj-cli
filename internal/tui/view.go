@@ -90,7 +90,7 @@ func (m *model) renderMain() ([]string, string) {
 			pairs = append(pairs, "U", u)
 		}
 		pairs = append(pairs, "M", "move to", "J/K", "order", "+/-", "5 min", "e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold",
-			"m", "minutes", "c", "create ref", "S", "sittings", "[/]", "sitting", "esc", "back")
+			"m", "minutes", "o", "open ref", "c", "create ref", "S", "sittings", "[/]", "sitting", "esc", "back")
 		lines, help = m.renderAgenda(), helpLine(pairs...)
 	case vSittings:
 		lines, help = m.renderOverview(), helpLine("enter", "open", "j/k", "move", "esc", "back")

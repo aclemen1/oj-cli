@@ -379,7 +379,15 @@ The agenda also lists, under "Deferred", the items deferred from this
 sitting to a later one, so that `u` (undefer) can bring them back. `S`
 opens the sittings view: recent and upcoming sittings, each with its items,
 then items with no sitting; from the meetings list for every meeting, from
-an agenda for its meeting.
+an agenda for its meeting. `M` moves the selected item to a planned sitting
+picked from a list; `o` jumps to its ref with the sphere's `open` command
+(for an office dossier: focus its session).
+
+The TUI keeps its state per sphere in `$XDG_STATE_HOME/oj/tui-<sphere>.json`
+(`~/.local/state/oj/…`): view, sitting, selected item, item opened, help
+shown or hidden, actions filter, sittings view scope, and in a live sitting
+the current item and the timers (a running timer keeps counting). It comes
+back as it was at the next start.
 
 | View | Shows | Actions |
 |---|---|---|
@@ -430,7 +438,8 @@ prints the new id, plain or as JSON `result.id`) and how to attach it
 (`link`, with `{id}` and `{meeting_ref}`, the id of the meeting's own ref of
 that scheme). `item add` with a ref that an open item of the meeting already
 carries returns that item: a tool that registers the new target as an item
-finds the existing one.
+finds the existing one. Finally `open` (with `{id}`) jumps to the target,
+e.g. `office attach {id}` focuses the dossier's session.
 
 A meeting's own settings live in its `meeting.md`.
 

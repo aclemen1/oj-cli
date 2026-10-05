@@ -32,6 +32,8 @@ type RefSource struct {
 	// (plain, or JSON with result.id); Link then attaches it ({id}, {meeting_ref}).
 	Create []string `yaml:"create,omitempty"`
 	Link   []string `yaml:"link,omitempty"`
+	// Open jumps to the target ({id}), e.g. focuses the dossier's session.
+	Open []string `yaml:"open,omitempty"`
 }
 
 // Hook runs a command on events of a sphere's meetings.

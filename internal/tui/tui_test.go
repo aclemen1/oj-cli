@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -384,5 +386,62 @@ func TestMovePicker(t *testing.T) {
 	press(t, m, "esc")
 	if m.moving != nil {
 		t.Fatal("esc cancels")
+	}
+}
+
+func TestStateSurvivesRestart(t *testing.T) {
+	m, st, now := setup(t)
+	path := filepath.Join(t.TempDir(), "tui-pro.json")
+	m.statePath = path
+	press(t, m, "enter")
+	press(t, m, "j")
+	press(t, m, "?")
+	press(t, m, "l")
+	press(t, m, "space")
+	*now = now.Add(5 * time.Minute)
+	press(t, m, "n") // timer moves to RDIR-2 after 5 min on RDIR-1
+
+	m2 := newModel(st)
+	m2.now = m.now
+	m2.w, m2.h = 140, 40
+	m2.statePath = path
+	drive(t, m2, m2.Init())
+	if m2.view != vLive || m2.agenda == nil || m2.agenda.Sitting.ID != "RDIR-2026-10-08" {
+		t.Fatalf("restored view %d, agenda %v", m2.view, m2.agenda)
+	}
+	if m2.helpOff != m.helpOff {
+		t.Fatal("help setting lost")
+	}
+	if it := m2.liveItem(); it == nil || it.ID != "RDIR-2" || !m2.live.running {
+		t.Fatalf("live item %v running %v", it, m2.live.running)
+	}
+	if m2.live.spent["RDIR-1"] != 5*time.Minute {
+		t.Fatalf("timer of RDIR-1: %v", m2.live.spent["RDIR-1"])
+	}
+	press(t, m2, "esc")
+	if m2.view != vAgenda || m2.current().item.ID != "RDIR-2" {
+		t.Fatalf("agenda selection after restart: %s", m2.current().item.ID)
+	}
+}
+
+func TestJumpToRef(t *testing.T) {
+	m, st, _ := setup(t)
+	out := filepath.Join(t.TempDir(), "jumped")
+	st.Refs = map[string]config.RefSource{"office": {Show: []string{"echo", "dossier {id}"},
+		Open: []string{"sh", "-c", "echo $0 > " + out, "{id}"}}}
+	st.EditItem("RDIR-1", store.ItemInput{Refs: []string{"office:U-0042"}})
+	m.helpOff = false
+	press(t, m, "enter")
+	if s := screen(m); !strings.Contains(s, "go to office:U-0042") {
+		t.Fatalf("help names the jump:\n%s", s)
+	}
+	press(t, m, "o")
+	if b, _ := os.ReadFile(out); strings.TrimSpace(string(b)) != "U-0042" {
+		t.Fatalf("open command got %q", b)
+	}
+	press(t, m, "j") // RDIR-2 has no ref
+	press(t, m, "o")
+	if !m.statusErr {
+		t.Fatal("no ref: an error in the status line")
 	}
 }

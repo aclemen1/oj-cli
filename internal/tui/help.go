@@ -230,7 +230,9 @@ func (m *model) helpAgenda(b *helpBuilder) {
 			b.key("+/-", m.tr("5 minutes de plus / de moins", "5 minutes more / less"))
 		}
 		b.key("e", m.tr("éditer (question, notes…)", "edit (question, notes…)"))
-		if len(m.st.CreateSchemes()) > 0 {
+		if ref := m.jumpRef(r.item); ref != "" {
+			b.key("o", m.tr("aller à "+ref, "go to "+ref))
+		} else if len(m.st.CreateSchemes()) > 0 {
 			b.key("c", m.tr("ouvrir un dossier pour ce point", "create a target (e.g. a dossier) for it"))
 		}
 		b.key("enter", m.tr("voir le point en entier", "see the whole item"))
@@ -260,6 +262,11 @@ func (m *model) helpLive(b *helpBuilder) {
 	b.key("D", m.tr("décision", "decision"))
 	b.key("t", m.tr("action : quoi|qui|AAAA-MM-JJ", "action: what|who|YYYY-MM-DD"))
 	b.key("-", m.tr("non traité : reporté au PV", "not reached: deferred at the minutes"))
+	if it := m.liveItem(); it != nil {
+		if ref := m.jumpRef(it); ref != "" {
+			b.key("o", m.tr("aller à "+ref, "go to "+ref))
+		}
+	}
 	b.key("h", m.tr("la séance est tenue", "the sitting is held"))
 	b.key("esc", m.tr("retour à l'ordre du jour", "back to the agenda"))
 }
@@ -270,6 +277,11 @@ func (m *model) helpItem(b *helpBuilder) {
 		"The whole item: fields, notes, history across sittings, linked dossier, log."))
 	b.title(m.tr("OPTIONS", "OPTIONS"))
 	b.key("j k", m.tr("défiler", "scroll"))
+	if m.item != nil {
+		if ref := m.jumpRef(m.item); ref != "" {
+			b.key("o", m.tr("aller à "+ref, "go to "+ref))
+		}
+	}
 	b.key("e", m.tr("éditer dans $EDITOR", "edit in $EDITOR"))
 	b.key("esc", m.tr("retour", "back"))
 }

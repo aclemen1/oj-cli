@@ -59,3 +59,19 @@ func (s *Store) ShowRef(ref string) RefShown {
 	out.Text = strings.TrimSpace(string(b))
 	return out
 }
+
+// CanOpenRef tells whether the sphere knows how to jump to a ref's target.
+func (s *Store) CanOpenRef(ref string) bool {
+	scheme, _, ok := strings.Cut(ref, ":")
+	return ok && len(s.Refs[scheme].Open) > 0
+}
+
+// OpenRef runs the sphere's open command for the ref (e.g. focus a dossier's session).
+func (s *Store) OpenRef(ref string) error {
+	scheme, id, ok := strings.Cut(ref, ":")
+	if !ok || len(s.Refs[scheme].Open) == 0 {
+		return fmt.Errorf("no open command for refs %q in the sphere's configuration (refs.%s.open)", scheme+":", scheme)
+	}
+	_, err := s.run(s.Refs[scheme].Open, map[string]string{"{id}": id})
+	return err
+}

@@ -30,7 +30,9 @@ func init() {
 			if err != nil {
 				return nil, err
 			}
-			_, err = tea.NewProgram(newModel(st)).Run()
+			m := newModel(st)
+			m.statePath = statePath(st.Sphere)
+			_, err = tea.NewProgram(m).Run()
 			return spec.Streamed{}, err
 		},
 	})
@@ -136,6 +138,12 @@ type model struct {
 	warnings  warnings
 	// helpOff hides the help panel, open by default.
 	helpOff bool
+
+	// statePath keeps the TUI's state across restarts ("" in tests).
+	statePath, lastSaved        string
+	restoreMeeting, restoreLive string
+	// keepView: the next agenda loads for a restored view, which it must not replace.
+	keepView bool
 
 	// refs caches what the sphere's ref commands say, by ref.
 	refs map[string]refEntry
@@ -340,11 +348,20 @@ func tick() tea.Cmd { return tea.Tick(time.Second, func(time.Time) tea.Msg { ret
 
 // ------------------------------------------------------------------ update
 
-func (m *model) Init() tea.Cmd { return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings()) }
+func (m *model) Init() tea.Cmd {
+	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), m.restore())
+}
 
 func (m *model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isErr }
 
+// Update handles a message, then keeps the state for the next start.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	next, cmd := m.update(msg)
+	m.persist()
+	return next, cmd
+}
+
+func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
@@ -360,13 +377,21 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			break
 		}
 		m.meetings = msg.rows
+		if m.restoreMeeting != "" {
+			for i, r := range m.meetings {
+				if r.alias == m.restoreMeeting {
+					m.selM = i
+				}
+			}
+			m.restoreMeeting = ""
+		}
 		m.selM = min(m.selM, max(0, len(m.meetings)-1))
 	case agendaMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
 			break
 		}
-		if m.agenda == nil || m.agenda.Sitting.ID != msg.agenda.Sitting.ID {
+		if !m.keepView && (m.agenda == nil || m.agenda.Sitting.ID != msg.agenda.Sitting.ID) {
 			m.sel = 0
 			m.live = live{spent: map[string]time.Duration{}}
 		}
@@ -394,8 +419,18 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.pick = ""
 		}
 		m.sel = min(m.sel, max(0, len(m.rows)-1))
+		if m.restoreLive != "" {
+			for i, ai := range msg.agenda.Items {
+				if ai.Item.ID == m.restoreLive {
+					m.live.cur = i
+				}
+			}
+			m.restoreLive = ""
+		}
 		m.live.cur = min(m.live.cur, max(0, len(msg.agenda.Items)-1))
-		if m.view != vLive {
+		if m.keepView {
+			m.keepView = false
+		} else if m.view != vLive {
 			m.view = vAgenda
 		}
 		return m, m.fetchRefs()
@@ -750,6 +785,10 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "U":
 		return m.undoSitting(sit)
+	case "o":
+		if r != nil {
+			return m.jump(r.item)
+		}
 	case "M":
 		if r != nil && (r.item.State == "proposed" || r.item.State == "accepted" || r.item.State == "deferred") {
 			return m.startMove(r.item)
@@ -901,8 +940,32 @@ func (m *model) keyItem(k tea.KeyPressMsg) tea.Cmd {
 		if m.item != nil {
 			return m.edit(m.item.ID)
 		}
+	case "o":
+		if m.item != nil {
+			return m.jump(m.item)
+		}
 	}
 	return nil
+}
+
+// jumpRef is the first ref of the item the sphere can open, or "".
+func (m *model) jumpRef(it *store.Item) string {
+	for _, r := range it.Refs {
+		if m.st.CanOpenRef(r) {
+			return r
+		}
+	}
+	return ""
+}
+
+// jump opens the item's ref with the sphere's open command (e.g. the dossier's session).
+func (m *model) jump(it *store.Item) tea.Cmd {
+	ref := m.jumpRef(it)
+	if ref == "" {
+		m.setStatus(m.tr("aucune ref à ouvrir pour ce point (refs.<schéma>.open)", "no ref to open for this item (refs.<scheme>.open)"), true)
+		return nil
+	}
+	return m.do("→ "+ref, func() error { return m.st.OpenRef(ref) })
 }
 
 func (m *model) liveItem() *store.Item {
@@ -962,6 +1025,10 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 	case "t":
 		if it != nil {
 			return m.ask(pAction, "action what|who|YYYY-MM-DD", it.ID, "")
+		}
+	case "o":
+		if it != nil {
+			return m.jump(it)
 		}
 	case "-":
 		if it != nil {
