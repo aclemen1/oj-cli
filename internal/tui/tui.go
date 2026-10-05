@@ -56,14 +56,16 @@ const (
 	pDecision
 	pAction
 	pMinute
+	pUnminute
 )
 
-// row is a line of the agenda: an item on it, or a proposal.
+// row is a line of the agenda: an item on it, a proposal, or a dropped item.
 type row struct {
 	item     *store.Item
 	outcome  *store.Outcome
 	start    string
 	proposed bool
+	dropped  bool
 }
 
 type meetingRow struct {
@@ -337,6 +339,9 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for _, it := range msg.agenda.Proposed {
 			m.rows = append(m.rows, row{item: it, proposed: true})
 		}
+		for _, it := range msg.agenda.Dropped {
+			m.rows = append(m.rows, row{item: it, dropped: true})
+		}
 		m.sel = min(m.sel, max(0, len(m.rows)-1))
 		m.live.cur = min(m.live.cur, max(0, len(msg.agenda.Items)-1))
 		if m.view != vLive {
@@ -463,6 +468,12 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			return nil
 		}
 		return m.do("minutes approved", func() error { _, err := m.st.MinuteSitting(target); return err })
+	case pUnminute:
+		if v != "yes" {
+			m.setStatus("minutes kept", false)
+			return nil
+		}
+		return m.do("minutes taken back", func() error { _, err := m.st.UnminuteSitting(target); return err })
 	}
 	return nil
 }
@@ -575,6 +586,12 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		return m.do(sit.ID+" held", func() error { _, err := m.st.HoldSitting(sit.ID, nil, nil); return err })
 	case "m":
 		return m.ask(pMinute, "approve the minutes of "+sit.ID+"? type yes", sit.ID, "")
+	case "u":
+		if r != nil {
+			return m.undoItem(r.item)
+		}
+	case "U":
+		return m.undoSitting(sit)
 	case "[", "]":
 		return m.step(k.String() == "]")
 	case "l":
@@ -584,6 +601,36 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		m.back, m.view = vAgenda, vActions
 		return m.loadActions()
 	}
+	return nil
+}
+
+// undoItem takes back the item's last step: a drop or a done (restore), a deferral (undefer).
+func (m *model) undoItem(it *store.Item) tea.Cmd {
+	id := it.ID
+	switch it.State {
+	case "dropped", "done":
+		return m.do(id+" restored", func() error { _, err := m.st.RestoreItem(id, false); return err })
+	case "deferred":
+		return m.do(id+" undeferred", func() error { _, err := m.st.UndeferItem(id); return err })
+	}
+	m.setStatus(id+" is "+it.State+": nothing to take back", true)
+	return nil
+}
+
+// undoSitting takes back the sitting's last step.
+func (m *model) undoSitting(sit *store.Sitting) tea.Cmd {
+	id := sit.ID
+	switch sit.State {
+	case "frozen":
+		return m.do(id+" reopened", func() error { _, err := m.st.ReopenSitting(id); return err })
+	case "held":
+		return m.do(id+" unheld", func() error { _, err := m.st.UnholdSitting(id); return err })
+	case "minuted":
+		return m.ask(pUnminute, "take back the minutes of "+id+"? type yes", id, "")
+	case "cancelled":
+		return m.do(id+" restored", func() error { _, err := m.st.RestoreSitting(id); return err })
+	}
+	m.setStatus(id+" is "+sit.State+": nothing to take back", true)
 	return nil
 }
 

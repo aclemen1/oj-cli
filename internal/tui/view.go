@@ -25,7 +25,8 @@ func (m *model) render() string {
 		lines, help = m.renderMeetings(), helpLine("enter", "agenda", "A", "actions", "R", "refresh", "q", "quit")
 	case vAgenda:
 		lines, help = m.renderAgenda(), helpLine("n", "new", "a", "accept", "d", "defer", "x", "drop", "J/K", "move", "+/-", "5 min",
-			"e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold", "m", "minutes", "[/]", "sitting", "esc", "back")
+			"e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold", "m", "minutes", "u", "undo item", "U", "undo sitting",
+			"[/]", "sitting", "esc", "back")
 	case vItem:
 		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
 	case vLive:
@@ -117,11 +118,15 @@ func (m *model) renderAgenda() []string {
 	}
 	out := m.sittingHeader()
 	var rows []string
-	shownProposed := false
+	shownProposed, shownDropped := false, false
 	for i, r := range m.rows {
 		if r.proposed && !shownProposed {
 			rows = append(rows, "", sSection.Render("Proposed"))
 			shownProposed = true
+		}
+		if r.dropped && !shownDropped {
+			rows = append(rows, "", sSection.Render("Dropped"))
+			shownDropped = true
 		}
 		it := r.item
 		owner := ""
@@ -129,9 +134,12 @@ func (m *model) renderAgenda() []string {
 			owner = sMuted.Render(" — " + it.Owner)
 		}
 		var line string
-		if r.proposed {
+		switch {
+		case r.dropped:
+			line = sMuted.Render(fmt.Sprintf("  %-10s %5s  %s — %s", it.ID, it.Duration, it.Title, it.Reason))
+		case r.proposed:
 			line = fmt.Sprintf("  %-10s %5s  %s%s", it.ID, it.Duration, it.Title, owner)
-		} else {
+		default:
 			line = fmt.Sprintf("%s %5s %-10s %5s  %s%s  %s", outcomeMark(r.outcome), r.start, it.ID, it.Duration, it.Title, owner,
 				sMuted.Render(it.Kind)+" "+stateStyle(it.State).Render(it.State))
 		}

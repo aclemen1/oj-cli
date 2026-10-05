@@ -17,8 +17,10 @@ import (
 // Events a hook can listen to.
 var Events = []string{
 	"item.added", "item.accepted", "item.deferred", "item.moved", "item.dropped",
+	"item.restored", "item.undeferred",
 	"outcome.set", "action.added",
 	"sitting.moved", "sitting.cancelled", "sitting.frozen", "sitting.held", "sitting.minuted",
+	"sitting.reopened", "sitting.unheld", "sitting.unminuted", "sitting.restored",
 }
 
 // MaxHookDepth stops a hook that calls ordo from starting hooks without end.

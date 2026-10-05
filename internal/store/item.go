@@ -13,21 +13,23 @@ import (
 )
 
 type Item struct {
-	ID          string     `yaml:"id" json:"id"`
-	Meeting     string     `yaml:"meeting" json:"meeting"`
-	Title       string     `yaml:"title" json:"title"`
-	Owner       string     `yaml:"owner,omitempty" json:"owner,omitempty"`
-	Kind        string     `yaml:"kind" json:"kind"`
-	Duration    string     `yaml:"duration,omitempty" json:"duration,omitempty"`
-	Expected    string     `yaml:"expected,omitempty" json:"expected,omitempty"`
-	Attachments []string   `yaml:"attachments,omitempty" json:"attachments,omitempty"`
-	Refs        []string   `yaml:"refs,omitempty" json:"refs,omitempty"`
-	Sitting     string     `yaml:"sitting,omitempty" json:"sitting,omitempty"`
-	State       string     `yaml:"state" json:"state"`
-	Reason      string     `yaml:"reason,omitempty" json:"reason,omitempty"`
-	History     []Entry    `yaml:"history,omitempty" json:"history,omitempty"`
-	Log         []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
-	Notes       string     `yaml:"-" json:"notes,omitempty"`
+	ID          string   `yaml:"id" json:"id"`
+	Meeting     string   `yaml:"meeting" json:"meeting"`
+	Title       string   `yaml:"title" json:"title"`
+	Owner       string   `yaml:"owner,omitempty" json:"owner,omitempty"`
+	Kind        string   `yaml:"kind" json:"kind"`
+	Duration    string   `yaml:"duration,omitempty" json:"duration,omitempty"`
+	Expected    string   `yaml:"expected,omitempty" json:"expected,omitempty"`
+	Attachments []string `yaml:"attachments,omitempty" json:"attachments,omitempty"`
+	Refs        []string `yaml:"refs,omitempty" json:"refs,omitempty"`
+	Sitting     string   `yaml:"sitting,omitempty" json:"sitting,omitempty"`
+	State       string   `yaml:"state" json:"state"`
+	// DeferredFrom is the sitting a deferred item was deferred from, for undefer.
+	DeferredFrom string     `yaml:"deferred_from,omitempty" json:"deferred_from,omitempty"`
+	Reason       string     `yaml:"reason,omitempty" json:"reason,omitempty"`
+	History      []Entry    `yaml:"history,omitempty" json:"history,omitempty"`
+	Log          []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
+	Notes        string     `yaml:"-" json:"notes,omitempty"`
 }
 
 // Entry is what happened to an item in one sitting.
@@ -378,6 +380,9 @@ func (s *Store) DeferItem(id, to string) (*Item, error) {
 		}
 		if it.State == "accepted" {
 			it.State = "deferred"
+		}
+		if it.State == "deferred" {
+			it.DeferredFrom = from
 		}
 		s.log(&it.Log, "deferred from "+orNone(from)+" to "+orNone(it.Sitting))
 		s.emit("item.deferred", it.Meeting, map[string]any{"item": it, "from": from, "to": it.Sitting})

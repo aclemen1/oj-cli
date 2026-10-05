@@ -236,6 +236,7 @@ type Agenda struct {
 	Title    string       `json:"title"`
 	Items    []AgendaItem `json:"items"`
 	Proposed []*Item      `json:"proposed"`
+	Dropped  []*Item      `json:"dropped"`
 	Planned  string       `json:"planned"`
 	Duration string       `json:"duration,omitempty"`
 	Over     bool         `json:"over,omitempty"`
@@ -286,9 +287,18 @@ func (s *Store) Agenda(arg string) (*Agenda, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &Agenda{Sitting: sit, Title: m.Title, Proposed: proposed, Duration: sit.Duration, Items: []AgendaItem{}}
+	a := &Agenda{Sitting: sit, Title: m.Title, Proposed: proposed, Duration: sit.Duration, Items: []AgendaItem{}, Dropped: []*Item{}}
 	if a.Proposed == nil {
 		a.Proposed = []*Item{}
+	}
+	all, err := s.items(sit.Meeting)
+	if err != nil {
+		return nil, err
+	}
+	for _, it := range all {
+		if it.Sitting == sit.ID && it.State == "dropped" {
+			a.Dropped = append(a.Dropped, it)
+		}
 	}
 	var clock time.Time
 	if sit.Time != "" {
@@ -507,6 +517,7 @@ func (s *Store) ReopenSitting(id string) (*Sitting, error) {
 		}
 		sit.State = "planned"
 		s.log(&sit.Log, "reopened")
+		s.emit("sitting.reopened", sit.Meeting, map[string]any{"sitting": sit})
 		return nil
 	})
 }
@@ -577,11 +588,11 @@ func (s *Store) MinuteSitting(id string) (*Minuted, error) {
 				out.Approved++
 			}
 			if e.Outcome != nil && e.Outcome.Next == "done" {
-				e.Result, it.State = "done", "done"
+				e.Result, it.State, it.DeferredFrom = "done", "done", ""
 				s.log(&it.Log, "done at "+sit.ID)
 				out.Done = append(out.Done, it.ID)
 			} else {
-				e.Result, it.State, it.Sitting = "deferred", "deferred", target
+				e.Result, it.State, it.Sitting, it.DeferredFrom = "deferred", "deferred", target, sit.ID
 				s.log(&it.Log, "deferred from "+sit.ID+" to "+orNone(target))
 				out.Deferred = append(out.Deferred, it.ID)
 				s.emit("item.deferred", it.Meeting, map[string]any{"item": it, "from": sit.ID, "to": target})

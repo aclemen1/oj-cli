@@ -210,6 +210,8 @@ sitting that did not happen.
 | `sitting freeze <sitting> [--leave-proposed]`, `sitting reopen <sitting>` | closes or reopens the agenda; freeze renders the agenda |
 | `sitting hold <sitting> [--present …] [--excused …]` | the sitting took place |
 | `sitting minute <sitting>` | approves the minutes, defers what is left, renders the minutes |
+| `sitting unhold <sitting>`, `sitting unminute <sitting>`, `sitting restore <sitting>` | take back a hold (frozen again, or planned), approved minutes (held again, items back as before, agent outcomes drafts again, rendered minutes removed; refused if an item changed since), a cancellation (planned again) |
+| `item restore <id> [--accept]`, `item undefer <id>` | take back a drop (proposed, or accepted) or a done (on the agenda again); take back a deferral (back to the sitting it came from when still open, accepted) |
 | `item add <alias> <title> [--owner] [--kind] [--duration] [--expected] [--attach]… [--ref]… [--sitting] [--accept]` | proposes an item (accepted at once with `--accept`); returns its id |
 | `item ls [<alias>] [--state] [--owner] [--ref <ref>] [--search <text>]` | lists items; `--ref office:U-0042` finds the item of a dossier |
 | `item show <id>`, `item edit <id> --set <field>=<value>` | reads and edits |
