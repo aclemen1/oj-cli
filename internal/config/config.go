@@ -49,6 +49,10 @@ type SphereRender struct {
 	Lang         string            `yaml:"lang,omitempty"`          // en (default) or fr
 	ReferenceDoc string            `yaml:"reference_doc,omitempty"` // docx layout for pandoc
 	Templates    map[string]string `yaml:"templates,omitempty"`     // agenda, minutes: Go templates
+	// Formats are rendered next to the Markdown by freeze and minute, e.g. [docx].
+	Formats []string `yaml:"formats,omitempty"`
+	// Converters replace pandoc for a format: a command with {in} (Markdown) and {out}.
+	Converters map[string][]string `yaml:"converters,omitempty"`
 }
 
 // Render: tools shared by every sphere.

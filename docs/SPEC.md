@@ -331,7 +331,12 @@ spheres:
   PDF, default xelatex).
 - `freeze` writes `rendered/<date>-agenda-vN.md` (`v2` after a reopen) and
   `minute` writes `rendered/<date>-minutes.md`, in the same commit; they are
-  never overwritten, and their paths go to the hooks.
+  never overwritten, and their paths go to the hooks. The sphere's
+  `render.formats` (e.g. `[docx]`) are rendered next to them in the same
+  commit; a format that fails is a warning, the Markdown stands.
+- A sphere can name its own converter for a format (`render.converters.docx:
+  [command, …, "{in}", "{out}"]`), used instead of pandoc, e.g. a script that
+  fills an institution's Word template.
 - `render` of a frozen agenda or approved minutes starts from that final
   Markdown, and a docx or PDF made from it is committed next to it.
   Anything else is a draft, marked as such, written to `--out` or to a

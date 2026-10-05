@@ -134,3 +134,43 @@ func TestPandocFormats(t *testing.T) {
 		t.Fatal("not a PDF")
 	}
 }
+
+func TestFreezeRendersSphereFormats(t *testing.T) {
+	if _, err := exec.LookPath("pandoc"); err != nil {
+		t.Skip("pandoc not installed")
+	}
+	s := frenchCycle(t)
+	s.Render.Formats = []string{"docx", "html"}
+	ch := must[*Changed](t)(s.FreezeSitting("RDIR", false))
+	base := strings.TrimSuffix(ch.Rendered, ".md")
+	for _, ext := range []string{".docx", ".html"} {
+		if st, err := os.Stat(base + ext); err != nil || st.Size() == 0 {
+			t.Fatalf("%s not rendered at freeze: %v", ext, err)
+		}
+	}
+	// A broken pandoc warns and the freeze stands.
+	var warns []string
+	s.Warn = func(m string) { warns = append(warns, m) }
+	s.Tools.Pandoc = "/nonexistent/pandoc"
+	must[*Sitting](t)(s.ReopenSitting("RDIR-2026-10-08"))
+	ch = must[*Changed](t)(s.FreezeSitting("RDIR-2026-10-08", false))
+	if ch.Sitting.State != "frozen" || len(warns) != 1 || !strings.Contains(warns[0], "docx") {
+		t.Fatalf("broken pandoc: %v, %v", ch.Sitting.State, warns)
+	}
+}
+
+func TestSphereConverter(t *testing.T) {
+	s := frenchCycle(t)
+	s.Render.Converters = map[string][]string{"docx": {"sh", "-c", `cp "$0" "$1"`, "{in}", "{out}"}}
+	s.Render.Formats = []string{"docx"}
+	ch := must[*Changed](t)(s.FreezeSitting("RDIR", false))
+	docx := strings.TrimSuffix(ch.Rendered, ".md") + ".docx"
+	if read(t, docx) != read(t, ch.Rendered) {
+		t.Fatal("the sphere's converter did not make the docx")
+	}
+	s.Render.Converters["docx"] = []string{"true"}
+	out := filepath.Join(t.TempDir(), "x.docx")
+	if _, err := s.RenderDoc("RDIR-2026-10-08", "agenda", "docx", out); err == nil || !strings.Contains(err.Error(), "wrote no") {
+		t.Fatalf("a converter that writes nothing: %v", err)
+	}
+}

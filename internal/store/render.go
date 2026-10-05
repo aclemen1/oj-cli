@@ -246,7 +246,19 @@ func (s *Store) renderFinal(sit *Sitting, m *Meeting, kind string) (string, erro
 	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 		return "", err
 	}
-	return p, os.WriteFile(p, b, 0o644)
+	if err := os.WriteFile(p, b, 0o644); err != nil {
+		return "", err
+	}
+	// The sphere's other formats: a failure is a warning, the Markdown stands.
+	for _, f := range s.Render.Formats {
+		if f == "md" || !contains(Formats, f) {
+			continue
+		}
+		if err := s.convert(p, f, strings.TrimSuffix(p, ".md")+"."+f, s.lang(m)); err != nil {
+			s.warn(fmt.Sprintf("%s of %s not rendered: %v", f, filepath.Base(p), err))
+		}
+	}
+	return p, nil
 }
 
 type Rendered struct {
@@ -332,10 +344,20 @@ func (s *Store) RenderDoc(arg, kind, to, out string) (*Rendered, error) {
 
 func fileExists(p string) bool { _, err := os.Stat(p); return err == nil }
 
-// convert turns a Markdown file into another format.
+// convert turns a Markdown file into another format, with the sphere's
+// converter for that format when it has one.
 func (s *Store) convert(md, to, dest, lang string) error {
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
+	}
+	if conv := s.Render.Converters[to]; len(conv) > 0 {
+		if _, err := s.run(conv, map[string]string{"{in}": md, "{out}": dest, "{lang}": lang}); err != nil {
+			return fmt.Errorf("%s converter: %w", to, err)
+		}
+		if _, err := os.Stat(dest); err != nil {
+			return fmt.Errorf("%s converter wrote no %s", to, dest)
+		}
+		return nil
 	}
 	src, err := os.ReadFile(md)
 	if err != nil {
