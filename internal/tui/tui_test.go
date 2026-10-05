@@ -160,7 +160,7 @@ func TestItemPane(t *testing.T) {
 	press(t, m, "enter")
 	s := screen(m)
 	for _, want := range []string{"── RDIR-1 · Budget 2027", "Owner     Marie · decision · 20m", "Question  Approuver le projet de budget ?",
-		"Attached  artefact://pro/01JB", "Refs      office:U-0042", "Notes     Le rectorat attend la version finale."} {
+		"Attached  artefact://pro/01JB", "Refs      office:U-0042", "Notes", "Le rectorat attend la version finale."} {
 		if !strings.Contains(s, want) {
 			t.Fatalf("pane lacks %q:\n%s", want, s)
 		}
@@ -177,7 +177,7 @@ func TestItemPane(t *testing.T) {
 
 func TestPaneShowsRefTarget(t *testing.T) {
 	m, st, _ := setup(t)
-	st.Refs = map[string]config.RefSource{"office": {Show: []string{"printf", "%s · open · Budget 2027\n\n## Instruction\n\nPréparer le budget avec la direction.", "{id}"}}}
+	st.Refs = map[string]config.RefSource{"office": {Show: []string{"printf", "%s · open · Budget 2027\n\n## Instruction\n\nPréparer le budget avec la **direction**.", "{id}"}}}
 	st.EditItem("RDIR-1", store.ItemInput{Refs: []string{"office:U-0042", "gmail:thread/abc"}})
 	press(t, m, "enter")
 	s := screen(m)
@@ -188,6 +188,9 @@ func TestPaneShowsRefTarget(t *testing.T) {
 	}
 	if strings.Contains(s, "·· gmail:thread/abc") {
 		t.Fatal("a ref without command gets no section")
+	}
+	if strings.Contains(s, "## Instruction") || strings.Contains(s, "**direction**") || !strings.Contains(s, "Instruction") {
+		t.Fatalf("the ref text is not rendered as Markdown:\n%s", s)
 	}
 	press(t, m, "enter")
 	if s := screen(m); m.view != vItem || !strings.Contains(s, "Préparer le budget avec la direction.") {

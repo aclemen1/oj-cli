@@ -191,7 +191,10 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 	field("Question", it.Expected)
 	field("Attached", strings.Join(it.Attachments, ", "))
 	field("Refs", strings.Join(it.Refs, ", "))
-	field("Notes", it.Notes)
+	if it.Notes != "" {
+		lines = append(lines, sMuted.Render("Notes"))
+		lines = append(lines, markdown(it.Notes, w)...)
+	}
 	if o != nil {
 		field("Summary", o.Summary)
 		field("Decision", o.Decision)
@@ -214,12 +217,7 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 		case e.shown.Error != "":
 			lines = append(lines, sErr.Render("  "+e.shown.Error))
 		default:
-			for _, l := range strings.Split(e.shown.Text, "\n") {
-				if strings.TrimSpace(l) == "" && len(lines) > 0 && lines[len(lines)-1] == "" {
-					continue
-				}
-				lines = append(lines, strings.Split(ansi.Wordwrap(l, w, ""), "\n")...)
-			}
+			lines = append(lines, markdown(e.shown.Text, w)...)
 		}
 	}
 	if len(lines) > maxLines {
@@ -261,9 +259,7 @@ func (m *model) renderItem() []string {
 	}
 	if it.Notes != "" {
 		lines = append(lines, "", sSection.Render("Notes"))
-		for _, l := range strings.Split(it.Notes, "\n") {
-			lines = append(lines, "  "+l)
-		}
+		lines = append(lines, markdown(it.Notes, max(20, m.w-2))...)
 	}
 	if len(it.History) > 0 {
 		lines = append(lines, "", sSection.Render("History"))
@@ -298,11 +294,7 @@ func (m *model) renderItem() []string {
 		case e.shown.Error != "":
 			lines = append(lines, sErr.Render("  "+e.shown.Error))
 		default:
-			for _, l := range strings.Split(e.shown.Text, "\n") {
-				for _, wl := range strings.Split(ansi.Wordwrap(l, max(20, m.w-4), ""), "\n") {
-					lines = append(lines, "  "+wl)
-				}
-			}
+			lines = append(lines, markdown(e.shown.Text, max(20, m.w-2))...)
 		}
 	}
 	lines = append(lines, "", sSection.Render("Log"))

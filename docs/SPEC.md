@@ -404,7 +404,8 @@ Hooks belong to a sphere, so a hook of one sphere never sees another.
 
 `refs` say how to summarise the target of an item's ref, by scheme: for
 `office:U-0042`, `{id}` becomes `U-0042`. The TUI shows that text for the
-selected item, refreshed after a minute, and `ordo item show --with-refs`
+selected item, rendered as Markdown and refreshed after a minute (item
+notes are rendered as Markdown too), and `ordo item show --with-refs`
 returns it to agents. Refs of a scheme with no command stay plain text.
 
 A meeting's own settings live in its `meeting.md`.
