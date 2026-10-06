@@ -494,6 +494,13 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.keyPrompt(msg)
 		}
 		m.status = ""
+		// Convention of the ecosystem's TUIs: q quits from any view, esc goes back.
+		if msg.String() == "q" {
+			if m.view == vLive {
+				m.pause()
+			}
+			return m, tea.Quit
+		}
 		if msg.String() == "?" {
 			m.helpOff = !m.helpOff
 			return m, nil
@@ -540,7 +547,7 @@ func (m *model) startMove(it *store.Item) tea.Cmd {
 
 func (m *model) keyPicker(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
-	case "esc", "q":
+	case "esc":
 		m.moving = nil
 	case "j", "down":
 		m.selC = min(len(m.choices)-1, m.selC+1)
@@ -565,7 +572,7 @@ func (m *model) openOverview(scope string, back view) tea.Cmd {
 
 func (m *model) keySittings(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
-	case "q", "esc":
+	case "esc":
 		m.view = m.back
 		return m.reload()
 	case "j", "down":
@@ -699,8 +706,6 @@ func (m *model) outcome(id string, edit func(*store.OutcomeInput)) tea.Cmd {
 
 func (m *model) keyMeetings(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
-	case "q", "esc":
-		return tea.Quit
 	case "j", "down":
 		m.selM = min(len(m.meetings)-1, m.selM+1)
 	case "k", "up":
@@ -732,7 +737,7 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	r := m.current()
 	sit := m.agenda.Sitting
 	switch k.String() {
-	case "q", "esc":
+	case "esc":
 		m.view = vMeetings
 		return m.loadMeetings()
 	case "j", "down":
@@ -945,7 +950,7 @@ func (m *model) edit(id string) tea.Cmd {
 
 func (m *model) keyItem(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
-	case "q", "esc":
+	case "esc":
 		m.view = m.back
 		return m.reload()
 	case "j", "down":
@@ -1010,7 +1015,7 @@ func (m *model) spent(id string) time.Duration {
 func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 	it := m.liveItem()
 	switch k.String() {
-	case "esc", "q":
+	case "esc":
 		m.pause()
 		m.live.running = false
 		m.view = vAgenda
@@ -1078,7 +1083,7 @@ func (m *model) outcomeField(id, field string) string {
 
 func (m *model) keyActions(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
-	case "q", "esc":
+	case "esc":
 		m.view = m.back
 		return m.reload()
 	case "j", "down":

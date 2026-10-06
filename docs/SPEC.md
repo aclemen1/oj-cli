@@ -371,7 +371,8 @@ oj import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 ## 11. TUI
 
 `oj tui`, Bubble Tea v2, keys aligned with the TUIs of `office` and
-`routine`.
+`routine`. `esc` goes back to the previous view and never quits; `q` quits
+from any view, except in a text field, where it is typed.
 
 A help panel, open by default (`?` hides it), says where the user is and
 what can be done next: in the agenda, the sitting on its cycle (planned →

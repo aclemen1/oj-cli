@@ -100,6 +100,8 @@ func (m *model) helpPanel(w int) []string {
 	}
 	b.title(m.tr("AIDE", "HELP"))
 	b.key("?", m.tr("masquer ou afficher cette aide", "hide or show this help"))
+	b.key("esc", m.tr("revenir à la vue précédente", "back to the previous view"))
+	b.key("q", m.tr("quitter (l'état est gardé pour le prochain lancement)", "quit (the state is kept for the next start)"))
 	return b.lines
 }
 
@@ -116,7 +118,6 @@ func (m *model) helpMeetings(b *helpBuilder) {
 	b.key("S", m.tr("toutes les occurrences, avec leurs points", "every sitting, with its items"))
 	b.key("A", m.tr("les actions décidées en séance", "actions decided in sittings"))
 	b.key("R", m.tr("rafraîchir", "refresh"))
-	b.key("q", m.tr("quitter", "quit"))
 }
 
 func (m *model) sittingStateText(s *store.Sitting, a *store.Agenda) (what, next string) {

@@ -485,3 +485,39 @@ func TestRelativeDates(t *testing.T) {
 		}
 	}
 }
+
+func TestEscBackQQuits(t *testing.T) {
+	m, _, _ := setup(t)
+	// esc on the meetings list does not quit.
+	_, cmd := m.Update(tea.KeyPressMsg{Code: tea.KeyEscape})
+	if cmd != nil {
+		if _, quit := cmd().(tea.QuitMsg); quit {
+			t.Fatal("esc must never quit")
+		}
+	}
+	press(t, m, "enter")
+	press(t, m, "l")
+	press(t, m, "esc")
+	if m.view != vAgenda {
+		t.Fatalf("esc from live: view %d", m.view)
+	}
+	press(t, m, "esc")
+	if m.view != vMeetings {
+		t.Fatalf("esc from agenda: view %d", m.view)
+	}
+	// q quits from a deep view, but is typed in a prompt.
+	press(t, m, "enter")
+	press(t, m, "n")
+	press(t, m, "q")
+	if m.prompt == pNone || m.input.Value() != "q" {
+		t.Fatalf("q in a prompt: prompt %d, value %q", m.prompt, m.input.Value())
+	}
+	press(t, m, "esc")
+	_, cmd = m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
+	if cmd == nil {
+		t.Fatal("q should quit")
+	}
+	if _, quit := cmd().(tea.QuitMsg); !quit {
+		t.Fatal("q should quit from the agenda")
+	}
+}
