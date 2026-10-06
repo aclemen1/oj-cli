@@ -458,6 +458,10 @@ type Changed struct {
 	Sitting  *Sitting `json:"sitting"`
 	Moved    []string `json:"moved,omitempty"`
 	Rendered string   `json:"rendered,omitempty"`
+	// Files: the rendered Markdown and the sphere's formats.
+	Files []string `json:"files,omitempty"`
+	// Unchanged: the agenda had not changed; the latest version was kept.
+	Unchanged bool `json:"unchanged,omitempty"`
 }
 
 // CancelSitting cancels a sitting; its items move to the next sitting.
@@ -505,10 +509,13 @@ func (s *Store) FreezeSitting(id string, leaveProposed bool) (*Changed, error) {
 		sit.Order = ids(on)
 		sit.State = "frozen"
 		s.log(&sit.Log, "frozen")
-		if out.Rendered, err = s.renderFinal(sit, m, "agenda"); err != nil {
+		f, err := s.renderFinal(sit, m, "agenda")
+		if err != nil {
 			return err
 		}
-		s.emit("sitting.frozen", sit.Meeting, map[string]any{"sitting": sit, "rendered": out.Rendered, "items": ids(on)})
+		out.Rendered, out.Files, out.Unchanged = f.Path, f.Files, f.Unchanged
+		s.emit("sitting.frozen", sit.Meeting, map[string]any{"sitting": sit, "rendered": f.Path, "files": f.Files,
+			"unchanged": f.Unchanged, "items": ids(on)})
 		return nil
 	})
 	out.Sitting = sit
@@ -557,6 +564,7 @@ type Minuted struct {
 	Done     []string `json:"done"`
 	Deferred []string `json:"deferred"`
 	Rendered string   `json:"rendered,omitempty"`
+	Files    []string `json:"files,omitempty"`
 	Moved    []string `json:"moved,omitempty"`
 	Approved int      `json:"approved"`
 }
@@ -612,10 +620,12 @@ func (s *Store) MinuteSitting(id string) (*Minuted, error) {
 		}
 		sit.State = "minuted"
 		s.log(&sit.Log, "minuted")
-		if out.Rendered, err = s.renderFinal(sit, m, "minutes"); err != nil {
+		f, err := s.renderFinal(sit, m, "minutes")
+		if err != nil {
 			return err
 		}
-		s.emit("sitting.minuted", sit.Meeting, map[string]any{"sitting": sit, "rendered": out.Rendered,
+		out.Rendered, out.Files = f.Path, f.Files
+		s.emit("sitting.minuted", sit.Meeting, map[string]any{"sitting": sit, "rendered": f.Path, "files": f.Files,
 			"done": out.Done, "deferred": out.Deferred})
 		return nil
 	})

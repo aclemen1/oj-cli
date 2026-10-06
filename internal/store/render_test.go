@@ -153,6 +153,7 @@ func TestFreezeRendersSphereFormats(t *testing.T) {
 	s.Warn = func(m string) { warns = append(warns, m) }
 	s.Tools.Pandoc = "/nonexistent/pandoc"
 	must[*Sitting](t)(s.ReopenSitting("RDIR-2026-10-08"))
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Divers"}, true, "RDIR-2026-10-08"))
 	ch = must[*Changed](t)(s.FreezeSitting("RDIR-2026-10-08", false))
 	if ch.Sitting.State != "frozen" || len(warns) != 1 || !strings.Contains(warns[0], "docx") {
 		t.Fatalf("broken pandoc: %v, %v", ch.Sitting.State, warns)

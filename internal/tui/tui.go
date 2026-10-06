@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -772,7 +773,22 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 			return m.edit(r.item.ID)
 		}
 	case "f":
-		return m.do(sit.ID+" frozen", func() error { _, err := m.st.FreezeSitting(sit.ID, false); return err })
+		id := sit.ID
+		return func() tea.Msg {
+			ch, err := m.st.FreezeSitting(id, false)
+			if err != nil {
+				return doneMsg{err: err}
+			}
+			var names []string
+			for _, f := range ch.Files {
+				names = append(names, filepath.Base(f))
+			}
+			status := m.tr(id+" figée : ", id+" frozen: ") + strings.Join(names, ", ")
+			if ch.Unchanged {
+				status += m.tr(" (ordre du jour inchangé, version précédente gardée)", " (agenda unchanged, previous version kept)")
+			}
+			return doneMsg{status: status}
+		}
 	case "r":
 		return m.do(sit.ID+" reopened", func() error { _, err := m.st.ReopenSitting(sit.ID); return err })
 	case "h":

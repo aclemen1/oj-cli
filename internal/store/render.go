@@ -225,40 +225,64 @@ func (s *Store) latestAgenda(sit *Sitting) (string, int) {
 	return path, best
 }
 
+// final is what renderFinal wrote: the Markdown, every file of the document
+// (the Markdown and the sphere's formats), and whether an agenda identical to
+// the latest version was kept instead of a new version.
+type final struct {
+	Path      string
+	Files     []string
+	Unchanged bool
+}
+
 // renderFinal writes the final Markdown of a document into the store, under
-// a lock the caller holds: a new agenda version, or the minutes.
-func (s *Store) renderFinal(sit *Sitting, m *Meeting, kind string) (string, error) {
+// a lock the caller holds: a new agenda version (or the latest one when the
+// agenda did not change), or the minutes; then the sphere's formats.
+func (s *Store) renderFinal(sit *Sitting, m *Meeting, kind string) (*final, error) {
 	d, err := s.doc(sit, m, kind, true)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	name := sittingKey(sit) + "-minutes.md"
+	latest := ""
 	if kind == "agenda" {
-		_, v := s.latestAgenda(sit)
+		var v int
+		latest, v = s.latestAgenda(sit)
 		d.Version = v + 1
 		name = fmt.Sprintf("%s-agenda-v%d.md", sittingKey(sit), d.Version)
 	}
 	b, err := s.execute(d)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	p := filepath.Join(s.renderedDir(sit.Meeting), name)
-	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
-		return "", err
+	out := &final{Path: filepath.Join(s.renderedDir(sit.Meeting), name)}
+	if prev, err := os.ReadFile(latest); latest != "" && err == nil && bytes.Equal(prev, b) {
+		out.Path, out.Unchanged = latest, true
+	} else {
+		if err := os.MkdirAll(filepath.Dir(out.Path), 0o755); err != nil {
+			return nil, err
+		}
+		if err := os.WriteFile(out.Path, b, 0o644); err != nil {
+			return nil, err
+		}
 	}
-	if err := os.WriteFile(p, b, 0o644); err != nil {
-		return "", err
-	}
+	out.Files = []string{out.Path}
 	// The sphere's other formats: a failure is a warning, the Markdown stands.
 	for _, f := range s.Render.Formats {
 		if f == "md" || !contains(Formats, f) {
 			continue
 		}
-		if err := s.convert(p, f, strings.TrimSuffix(p, ".md")+"."+f, s.lang(m)); err != nil {
-			s.warn(fmt.Sprintf("%s of %s not rendered: %v", f, filepath.Base(p), err))
+		dest := strings.TrimSuffix(out.Path, ".md") + "." + f
+		if out.Unchanged && fileExists(dest) {
+			out.Files = append(out.Files, dest)
+			continue
 		}
+		if err := s.convert(out.Path, f, dest, s.lang(m)); err != nil {
+			s.warn(fmt.Sprintf("%s of %s not rendered: %v", f, filepath.Base(out.Path), err))
+			continue
+		}
+		out.Files = append(out.Files, dest)
 	}
-	return p, nil
+	return out, nil
 }
 
 type Rendered struct {
