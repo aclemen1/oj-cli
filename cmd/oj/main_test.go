@@ -71,9 +71,9 @@ func TestCLICycle(t *testing.T) {
 
 func TestCLIErrors(t *testing.T) {
 	c := newCLI(t)
-	code, env, raw := c.run("item", "ls")
+	code, env, raw := c.run("meeting", "add", "RDIR", "--title", "x")
 	if code != spec.ExitUsage || !strings.Contains(raw, "--sphere") {
-		t.Fatalf("missing sphere: %d %v", code, env)
+		t.Fatalf("write without a sphere: %d %v", code, env)
 	}
 	code, _, raw = c.run("item", "add", "RDIR", "x", "--sphere", "pro")
 	if code != spec.ExitNotFound || !strings.Contains(raw, "oj meeting ls") {
@@ -90,6 +90,47 @@ func TestCLIErrors(t *testing.T) {
 	code, _, raw = c.run("sitting", "ls", "--sphere", "perso")
 	if code != spec.ExitUsage || !strings.Contains(raw, "configured: pro") {
 		t.Fatalf("unknown sphere: %d %s", code, raw)
+	}
+}
+
+func TestCLISpheres(t *testing.T) {
+	c := newCLI(t)
+	c.ok("init", "--sphere", "perso", "--root", filepath.Join(filepath.Dir(c.config), "perso"), "--vcs", "none")
+	c.ok("meeting", "add", "RDIR", "--title", "Direction", "--sphere", "pro")
+	c.ok("meeting", "add", "RDIR", "--title", "Famille", "--sphere", "perso")
+	c.ok("meeting", "add", "FAM", "--title", "Famille", "--sphere", "perso")
+	c.ok("item", "add", "pro:RDIR", "Budget")
+	c.ok("item", "add", "FAM", "Vacances", "--sphere", "perso")
+
+	_, env, raw := c.run("item", "ls", "--state", "all")
+	l, _ := env["result"].([]any)
+	if len(l) != 2 {
+		t.Fatalf("items of every sphere: %s", raw)
+	}
+	_, _, text := c.run("meeting", "ls", "--format", "text")
+	if !strings.Contains(text, "pro:RDIR") || !strings.Contains(text, "perso:FAM") {
+		t.Fatalf("meetings tagged by sphere:\n%s", text)
+	}
+	code, _, raw := c.run("meeting", "show", "RDIR")
+	if code != spec.ExitUsage || !strings.Contains(raw, "pro:RDIR") {
+		t.Fatalf("collision: %d %s", code, raw)
+	}
+	if m := c.ok("meeting", "show", "perso:RDIR"); m["title"] != "Famille" {
+		t.Fatalf("qualified show: %v", m)
+	}
+	if it := c.ok("item", "show", "FAM-1"); it["sphere"] != "perso" {
+		t.Fatalf("item found in its sphere: %v", it)
+	}
+	code, _, raw = c.run("item", "add", "pro:RDIR", "x", "--sphere", "perso")
+	if code != spec.ExitUsage {
+		t.Fatalf("qualified id against --sphere: %d %s", code, raw)
+	}
+	t.Setenv("OJ_SPHERE", "perso")
+	if l := c.ok("meeting", "show", "FAM"); l["alias"] != "FAM" {
+		t.Fatalf("OJ_SPHERE does not narrow reads: %v", l)
+	}
+	if it := c.ok("item", "add", "RDIR", "Anniversaire"); it["sphere"] != "perso" {
+		t.Fatalf("OJ_SPHERE for writes: %v", it)
 	}
 }
 

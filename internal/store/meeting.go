@@ -13,6 +13,7 @@ import (
 )
 
 type Meeting struct {
+	Sphere       string     `yaml:"-" json:"sphere,omitempty"`
 	Alias        string     `yaml:"alias" json:"alias"`
 	Title        string     `yaml:"title" json:"title"`
 	RRule        string     `yaml:"rrule,omitempty" json:"rrule,omitempty"`
@@ -52,7 +53,7 @@ func (s *Store) Meeting(alias string) (*Meeting, error) {
 	if err != nil {
 		return nil, err
 	}
-	m.Notes = body
+	m.Notes, m.Sphere = body, s.Sphere
 	return m, nil
 }
 
@@ -101,7 +102,7 @@ func (s *Store) AddMeeting(alias string, in MeetingInput) (*Meeting, error) {
 	if strings.TrimSpace(in.Title) == "" {
 		return nil, spec.UserError("meeting add needs --title. Example: oj meeting add RDIR --title \"Séance de direction\" --sphere pro")
 	}
-	m := &Meeting{Alias: a, Title: strings.TrimSpace(in.Title), Place: in.Place, Chair: in.Chair, Members: in.Members, Refs: in.Refs}
+	m := &Meeting{Sphere: s.Sphere, Alias: a, Title: strings.TrimSpace(in.Title), Place: in.Place, Chair: in.Chair, Members: in.Members, Refs: in.Refs}
 	if err := applyMeeting(m, in); err != nil {
 		return nil, err
 	}

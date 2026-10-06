@@ -118,6 +118,20 @@ func (m *model) helpMeetings(b *helpBuilder) {
 	b.key("S", m.tr("toutes les occurrences, avec leurs points", "every sitting, with its items"))
 	b.key("A", m.tr("les actions décidées en séance", "actions decided in sittings"))
 	b.key("R", m.tr("rafraîchir", "refresh"))
+	m.helpFilter(b)
+}
+
+// helpFilter explains s when several spheres are shown.
+func (m *model) helpFilter(b *helpBuilder) {
+	if !m.multi() {
+		return
+	}
+	cur := m.tr("toutes", "all")
+	if m.filter != "" {
+		cur = m.filter
+	}
+	b.key("s", m.tr("sphère montrée : toutes, puis chacune tour à tour (actuelle : "+cur+")",
+		"sphere shown: all, then each in turn (now: "+cur+")"))
 }
 
 func (m *model) sittingStateText(s *store.Sitting, a *store.Agenda) (what, next string) {
@@ -294,6 +308,7 @@ func (m *model) helpActions(b *helpBuilder) {
 	b.title(m.tr("OPTIONS", "OPTIONS"))
 	b.key("space", m.tr("marquer faite / à faire", "mark done / open"))
 	b.key("o", m.tr("montrer aussi les actions faites", "also show done actions"))
+	m.helpFilter(b)
 	b.key("esc", m.tr("retour", "back"))
 }
 
@@ -304,5 +319,8 @@ func (m *model) helpSittings(b *helpBuilder) {
 	b.title(m.tr("OPTIONS", "OPTIONS"))
 	b.key("enter", m.tr("ouvrir l'ordre du jour (sur le point choisi)", "open the agenda (on the chosen item)"))
 	b.key("j k", m.tr("se déplacer", "move"))
+	if m.ovScope == "" {
+		m.helpFilter(b)
+	}
 	b.key("esc", m.tr("retour", "back"))
 }

@@ -242,7 +242,7 @@ func (s *Store) oneOffFromEvent(m *Meeting, e calendar.Event, loc *time.Location
 	if place == "" {
 		place = m.Place
 	}
-	sit := &Sitting{ID: m.Alias + "-" + key, Meeting: m.Alias, Date: day, Time: e.Start.In(loc).Format("15:04"),
+	sit := &Sitting{Sphere: s.Sphere, ID: m.Alias + "-" + key, Meeting: m.Alias, Date: day, Time: e.Start.In(loc).Format("15:04"),
 		Place: place, Duration: m.Duration, State: "planned", Event: e.UID, Virtual: true}
 	if !e.End.IsZero() && e.End.After(e.Start) {
 		sit.Duration = FormatDuration(e.End.Sub(e.Start).Truncate(time.Minute))

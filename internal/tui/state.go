@@ -9,8 +9,10 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
-// saved is what the TUI keeps across restarts, per sphere.
+// saved is what the TUI keeps across restarts, per set of spheres shown.
 type saved struct {
+	Sphere   string `json:"sphere,omitempty"`
+	Filter   string `json:"filter,omitempty"`
 	View     view   `json:"view"`
 	Back     view   `json:"back"`
 	Meeting  string `json:"meeting,omitempty"`
@@ -29,18 +31,23 @@ type saved struct {
 	Since   time.Time          `json:"since,omitzero"`
 }
 
-// statePath is $XDG_STATE_HOME/oj/tui-<sphere>.json, or ~/.local/state/oj/….
-func statePath(sphere string) string {
+// statePath is $XDG_STATE_HOME/oj/tui-<sphere>.json for one sphere, tui.json
+// for several, or the same under ~/.local/state.
+func statePath(spheres []string) string {
+	name := "tui.json"
+	if len(spheres) == 1 {
+		name = "tui-" + spheres[0] + ".json"
+	}
 	dir := os.Getenv("XDG_STATE_HOME")
 	if dir == "" {
 		home, _ := os.UserHomeDir()
 		dir = filepath.Join(home, ".local", "state")
 	}
-	return filepath.Join(dir, "oj", "tui-"+sphere+".json")
+	return filepath.Join(dir, "oj", name)
 }
 
 func (m *model) snapshot() saved {
-	s := saved{View: m.view, Back: m.back, HelpOff: m.helpOff, ShowDone: m.showDone,
+	s := saved{Sphere: m.st.Sphere, Filter: m.filter, View: m.view, Back: m.back, HelpOff: m.helpOff, ShowDone: m.showDone,
 		OvScope: m.ovScope, SelO: m.selO, SelA: m.selA}
 	if m.selM < len(m.meetings) {
 		s.Meeting = m.meetings[m.selM].alias
@@ -100,6 +107,12 @@ func (m *model) restore() tea.Cmd {
 		return nil
 	}
 	m.lastSaved = string(b)
+	m.enter(s.Sphere)
+	for _, st := range m.stores {
+		if st.Sphere == s.Filter {
+			m.filter = s.Filter
+		}
+	}
 	m.helpOff, m.showDone, m.ovScope, m.selO, m.selA = s.HelpOff, s.ShowDone, s.OvScope, s.SelO, s.SelA
 	m.restoreMeeting = s.Meeting
 	m.live.spent = map[string]time.Duration{}

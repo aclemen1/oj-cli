@@ -42,6 +42,8 @@ type Action struct {
 	Destructive bool     `json:"destructive"`
 	// Top actions are called `oj <name>`; the others `oj <category> <name>`.
 	Top bool `json:"-"`
+	// Read actions cover every sphere by default; the others need one.
+	Read bool `json:"-"`
 	// Meta actions default to text output; action commands default to JSON.
 	Meta bool `json:"-"`
 	// Run returns the result payload. A nil result yields {"ok": true}.

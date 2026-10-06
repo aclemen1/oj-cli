@@ -22,17 +22,21 @@ import (
 func init() {
 	spec.Register(&spec.Action{
 		Category: "setup", Name: "tui", Top: true,
-		Summary:  "Open the terminal interface on a sphere: meetings, agenda, live sitting, actions.",
-		Params:   []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to $OJ_SPHERE."}},
+		Summary:  "Open the terminal interface: meetings, agenda, live sitting, actions, of every sphere (s filters).",
+		Params:   []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to every sphere."}},
 		Effects:  []string{"Runs until q; every change goes through the same store actions as the CLI."},
 		Examples: []string{"oj tui --sphere pro"},
 		Run: func(ctx *spec.Context) (any, error) {
-			st, err := actions.Open(ctx)
+			stores, err := actions.OpenRead(ctx)
 			if err != nil {
 				return nil, err
 			}
-			m := newModel(st)
-			m.statePath = statePath(st.Sphere)
+			m := newModel(stores...)
+			var names []string
+			for _, st := range stores {
+				names = append(names, st.Sphere)
+			}
+			m.statePath = statePath(names)
 			_, err = tea.NewProgram(m).Run()
 			return spec.Streamed{}, err
 		},
@@ -76,6 +80,7 @@ type row struct {
 
 // ovRow is a line of the sittings view: a meeting, a sitting, or an item.
 type ovRow struct {
+	sphere           string
 	meeting, sitting string
 	item             *store.Item
 	agenda           *store.Agenda
@@ -83,6 +88,7 @@ type ovRow struct {
 }
 
 type meetingRow struct {
+	sphere                       string
 	alias, title, next, nextDate string
 	accepted, proposed           int
 }
@@ -95,8 +101,12 @@ type live struct {
 }
 
 type model struct {
-	st  *store.Store
-	now func() time.Time
+	// stores are the spheres shown; st is the sphere of the open meeting, where changes go.
+	stores []*store.Store
+	st     *store.Store
+	// filter keeps one sphere in the lists, "" every sphere.
+	filter string
+	now    func() time.Time
 
 	view, back view
 
@@ -158,15 +168,66 @@ type refEntry struct {
 
 const refFresh = time.Minute
 
-func newModel(st *store.Store) *model {
+func newModel(stores ...*store.Store) *model {
 	in := textinput.New()
 	styles := in.Styles()
 	styles.Cursor.Blink = false
 	in.SetStyles(styles)
-	m := &model{st: st, now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}},
+	m := &model{stores: stores, st: stores[0], now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}},
 		refs: map[string]refEntry{}}
-	st.Warn = m.warnings.add
+	for _, st := range stores {
+		st.Warn = m.warnings.add
+	}
 	return m
+}
+
+// multi is true when the TUI shows several spheres.
+func (m *model) multi() bool { return len(m.stores) > 1 }
+
+// shown are the stores the filter keeps.
+func (m *model) shown() []*store.Store {
+	if m.filter == "" {
+		return m.stores
+	}
+	for _, st := range m.stores {
+		if st.Sphere == m.filter {
+			return []*store.Store{st}
+		}
+	}
+	return m.stores
+}
+
+// storeOf is the store of a sphere, or the current one.
+func (m *model) storeOf(sphere string) *store.Store {
+	for _, st := range m.stores {
+		if st.Sphere == sphere {
+			return st
+		}
+	}
+	return m.st
+}
+
+// enter makes a sphere the current one, for the meeting about to open.
+func (m *model) enter(sphere string) {
+	if sphere != "" {
+		m.st = m.storeOf(sphere)
+	}
+}
+
+// cycleFilter goes from every sphere to each sphere in turn, then back.
+func (m *model) cycleFilter() {
+	next := ""
+	if m.filter == "" {
+		next = m.stores[0].Sphere
+	} else {
+		for i, st := range m.stores {
+			if st.Sphere == m.filter && i+1 < len(m.stores) {
+				next = m.stores[i+1].Sphere
+			}
+		}
+	}
+	m.filter = next
+	m.selM, m.selO, m.selA = 0, 0, 0
 }
 
 // warnings collects what a store change reports after it succeeded; the
@@ -254,42 +315,46 @@ func (m *model) fetchRefs() tea.Cmd {
 }
 
 func (m *model) loadMeetings() tea.Cmd {
+	stores := m.shown()
 	return func() tea.Msg {
-		ms, err := m.st.Meetings()
-		if err != nil {
-			return meetingsMsg{err: err}
-		}
 		var rows []meetingRow
-		for _, mt := range ms {
-			r := meetingRow{alias: mt.Alias, title: mt.Title}
-			if a, err := m.st.Agenda(mt.Alias); err == nil {
-				r.next, r.nextDate, r.accepted, r.proposed = a.Sitting.ID, a.Sitting.Date, len(a.Items), len(a.Proposed)
+		for _, st := range stores {
+			ms, err := st.Meetings()
+			if err != nil {
+				return meetingsMsg{err: err}
 			}
-			rows = append(rows, r)
+			for _, mt := range ms {
+				r := meetingRow{sphere: st.Sphere, alias: mt.Alias, title: mt.Title}
+				if a, err := st.Agenda(mt.Alias); err == nil {
+					r.next, r.nextDate, r.accepted, r.proposed = a.Sitting.ID, a.Sitting.Date, len(a.Items), len(a.Proposed)
+				}
+				rows = append(rows, r)
+			}
 		}
 		return meetingsMsg{rows: rows}
 	}
 }
 
 func (m *model) loadAgenda(arg string) tea.Cmd {
+	st, since := m.st, m.now().AddDate(-1, 0, 0).Format("2006-01-02")
 	return func() tea.Msg {
-		a, err := m.st.Agenda(arg)
+		a, err := st.Agenda(arg)
 		if err != nil {
 			return agendaMsg{err: err}
 		}
-		mt, err := m.st.Meeting(a.Sitting.Meeting)
+		mt, err := st.Meeting(a.Sitting.Meeting)
 		if err != nil {
 			return agendaMsg{err: err}
 		}
-		since := m.now().AddDate(-1, 0, 0).Format("2006-01-02")
-		sits, err := m.st.Sittings(mt, since, 8, "all")
+		sits, err := st.Sittings(mt, since, 8, "all")
 		return agendaMsg{agenda: a, sittings: sits, err: err}
 	}
 }
 
 func (m *model) loadItem(id string) tea.Cmd {
+	st := m.st
 	return func() tea.Msg {
-		it, err := m.st.Item(id)
+		it, err := st.Item(id)
 		return itemMsg{it, err}
 	}
 }
@@ -299,9 +364,18 @@ func (m *model) loadActions() tea.Cmd {
 	if m.showDone {
 		state = "all"
 	}
+	stores := m.shown()
 	return func() tea.Msg {
-		rows, err := m.st.Actions(store.ActionFilter{State: state})
-		return actionsMsg{rows, err}
+		rows := []store.ActionRow{}
+		for _, st := range stores {
+			l, err := st.Actions(store.ActionFilter{State: state})
+			if err != nil {
+				return actionsMsg{nil, err}
+			}
+			rows = append(rows, l...)
+		}
+		store.SortActions(rows)
+		return actionsMsg{rows, nil}
 	}
 }
 
@@ -313,9 +387,20 @@ type overviewMsg struct {
 func (m *model) loadOverview() tea.Cmd {
 	scope := m.ovScope
 	since := m.now().AddDate(0, 0, -30).Format("2006-01-02")
+	stores := m.shown()
+	if scope != "" {
+		stores = []*store.Store{m.st}
+	}
 	return func() tea.Msg {
-		ovs, err := m.st.Overviews(scope, since, 4)
-		return overviewMsg{ovs, err}
+		var all []store.Overview
+		for _, st := range stores {
+			ovs, err := st.Overviews(scope, since, 4)
+			if err != nil {
+				return overviewMsg{nil, err}
+			}
+			all = append(all, ovs...)
+		}
+		return overviewMsg{all, nil}
 	}
 }
 
@@ -380,7 +465,7 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.meetings = msg.rows
 		if m.restoreMeeting != "" {
 			for i, r := range m.meetings {
-				if r.alias == m.restoreMeeting {
+				if r.alias == m.restoreMeeting && r.sphere == m.st.Sphere {
 					m.selM = i
 				}
 			}
@@ -444,18 +529,19 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		m.ovRows = nil
 		for _, ov := range msg.ovs {
-			m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting})
+			sp := ov.Sphere
+			m.ovRows = append(m.ovRows, ovRow{sphere: sp, meeting: ov.Meeting})
 			for _, a := range ov.Sittings {
-				m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, sitting: a.Sitting.ID, agenda: a})
+				m.ovRows = append(m.ovRows, ovRow{sphere: sp, meeting: ov.Meeting, sitting: a.Sitting.ID, agenda: a})
 				for _, ai := range a.Items {
-					m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, sitting: a.Sitting.ID, item: ai.Item})
+					m.ovRows = append(m.ovRows, ovRow{sphere: sp, meeting: ov.Meeting, sitting: a.Sitting.ID, item: ai.Item})
 				}
 				for _, it := range a.Proposed {
-					m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, sitting: a.Sitting.ID, item: it})
+					m.ovRows = append(m.ovRows, ovRow{sphere: sp, meeting: ov.Meeting, sitting: a.Sitting.ID, item: it})
 				}
 			}
 			for _, it := range ov.Unplanned {
-				m.ovRows = append(m.ovRows, ovRow{meeting: ov.Meeting, item: it, unplanned: true})
+				m.ovRows = append(m.ovRows, ovRow{sphere: sp, meeting: ov.Meeting, item: it, unplanned: true})
 			}
 		}
 		m.selO = min(m.selO, max(0, len(m.ovRows)-1))
@@ -575,6 +661,11 @@ func (m *model) keySittings(k tea.KeyPressMsg) tea.Cmd {
 	case "esc":
 		m.view = m.back
 		return m.reload()
+	case "s":
+		if m.multi() && m.ovScope == "" {
+			m.cycleFilter()
+			return m.loadOverview()
+		}
 	case "j", "down":
 		m.selO = min(len(m.ovRows)-1, m.selO+1)
 	case "k", "up":
@@ -584,6 +675,7 @@ func (m *model) keySittings(k tea.KeyPressMsg) tea.Cmd {
 			return nil
 		}
 		r := m.ovRows[m.selO]
+		m.enter(r.sphere)
 		switch {
 		case r.item != nil && r.unplanned:
 			m.back, m.view, m.scroll, m.item = vSittings, vItem, 0, r.item
@@ -713,7 +805,13 @@ func (m *model) keyMeetings(k tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		if m.selM < len(m.meetings) {
 			m.agenda = nil
+			m.enter(m.meetings[m.selM].sphere)
 			return m.loadAgenda(m.meetings[m.selM].alias)
+		}
+	case "s":
+		if m.multi() {
+			m.cycleFilter()
+			return m.loadMeetings()
 		}
 	case "A":
 		m.back, m.view = vMeetings, vActions
@@ -1097,14 +1195,20 @@ func (m *model) keyActions(k tea.KeyPressMsg) tea.Cmd {
 			if a.Done {
 				verb = "open again"
 			}
+			st := m.storeOf(a.Sphere)
 			return m.do(fmt.Sprintf("%s#%d %s", a.Item, a.N, verb), func() error {
-				_, err := m.st.SetActionDone(a.Item, a.Sitting, a.N, !a.Done)
+				_, err := st.SetActionDone(a.Item, a.Sitting, a.N, !a.Done)
 				return err
 			})
 		}
 	case "o":
 		m.showDone = !m.showDone
 		return m.loadActions()
+	case "s":
+		if m.multi() {
+			m.cycleFilter()
+			return m.loadActions()
+		}
 	}
 	return nil
 }

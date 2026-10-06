@@ -8,13 +8,16 @@ description: Keeps the agenda of meetings (recurring or one-off) — items propo
 | Need | Command |
 |---|---|
 | Add an item to the next sitting | `oj item add <alias> "<title>" --sphere <s>` (`--accept` when the user asks to put it on the agenda) |
-| Show the next agenda | `oj sitting show <alias> --sphere <s>` |
+| Show the next agenda | `oj sitting show <alias>` |
 | Find an item | `oj item ls --search <text>` · `--ref office:<id>` |
 | Record an outcome | `oj outcome set <item> --decision "…" --by agent:<name>` |
 | Exact parameters of an action | `oj schema <category> <action>` |
 
-- Every call names its sphere: `--sphere`, or `OJ_SPHERE`.
-- Ids: meeting `RDIR`, sitting `RDIR-2026-10-08`, item `RDIR-17`.
+- A read covers every sphere; `--sphere` narrows it.
+- A write needs a sphere: `--sphere`, a qualified id (`pro:RDIR-17`) or
+  `OJ_SPHERE`.
+- Ids: meeting `RDIR`, sitting `RDIR-2026-10-08`, item `RDIR-17`. An id found
+  in several spheres takes its qualified form.
 - An outcome written by an agent stays a draft until the user approves the
   minutes (`oj sitting minute`).
 - Answers are `{"ok": true, "result": …}` or `{"ok": false, "error": {…}}`;

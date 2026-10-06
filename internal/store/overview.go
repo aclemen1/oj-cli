@@ -3,6 +3,7 @@ package store
 // Overview is a meeting's sittings, each with its agenda, and its open items
 // that have no sitting yet.
 type Overview struct {
+	Sphere    string    `json:"sphere,omitempty"`
 	Meeting   string    `json:"meeting"`
 	Title     string    `json:"title"`
 	Sittings  []*Agenda `json:"sittings"`
@@ -27,7 +28,7 @@ func (s *Store) Overviews(alias, since string, ahead int) ([]Overview, error) {
 	}
 	out := []Overview{}
 	for _, m := range ms {
-		ov := Overview{Meeting: m.Alias, Title: m.Title, Sittings: []*Agenda{}, Unplanned: []*Item{}}
+		ov := Overview{Sphere: s.Sphere, Meeting: m.Alias, Title: m.Title, Sittings: []*Agenda{}, Unplanned: []*Item{}}
 		sits, err := s.Sittings(m, since, ahead, "all")
 		if err != nil {
 			return nil, err

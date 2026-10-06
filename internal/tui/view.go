@@ -40,7 +40,7 @@ func (m *model) render() string {
 	lines, foot := m.renderMain()
 	mainW, mainH := m.w, m.h
 	m.w, m.h = w, h
-	head := sTitle.Render("oj") + " " + sphereTag(m.st.Sphere)
+	head := sTitle.Render("oj") + " " + m.headSphere()
 	var body string
 	switch {
 	case panel == nil:
@@ -57,6 +57,30 @@ func (m *model) render() string {
 		body = block(lines, w, mainH-2) + "\n" + sMuted.Render(strings.Repeat("─", w)) + "\n" + block(panel, w, h-mainH-1)
 	}
 	return pad(head, w) + "\n" + body + "\n" + pad(foot, w)
+}
+
+// headSphere names the sphere of the open meeting, or the filter of the lists.
+func (m *model) headSphere() string {
+	list := m.view == vMeetings || m.view == vActions || (m.view == vSittings && m.ovScope == "")
+	if !m.multi() || !list {
+		return sphereTag(m.st.Sphere)
+	}
+	if m.filter != "" {
+		return sphereTag(m.filter)
+	}
+	var tags []string
+	for _, st := range m.stores {
+		tags = append(tags, sphereTag(st.Sphere))
+	}
+	return strings.Join(tags, sMuted.Render("+"))
+}
+
+// tagged puts the sphere before a name when several spheres are shown.
+func (m *model) tagged(sphere, name string) string {
+	if !m.multi() || m.filter != "" {
+		return name
+	}
+	return sphereTag(sphere) + sMuted.Render(":") + name
 }
 
 // renderMain renders the view at m.w × m.h and returns its lines and footer.
@@ -80,7 +104,7 @@ func (m *model) renderMain() ([]string, string) {
 	}
 	switch m.view {
 	case vMeetings:
-		lines, help = m.renderMeetings(), helpLine("enter", "agenda", "S", "all sittings", "A", "actions", "R", "refresh", "q", "quit")
+		lines, help = m.renderMeetings(), helpLine(m.filterPairs("enter", "agenda", "S", "all sittings", "A", "actions", "R", "refresh", "q", "quit")...)
 	case vAgenda:
 		pairs := []string{"n", "new", "a", "accept", "d", "defer", "x", "drop"}
 		if u := m.undoLabel(); u != "" {
@@ -93,14 +117,18 @@ func (m *model) renderMain() ([]string, string) {
 			"m", "minutes", "o", "open ref", "c", "create ref", "S", "sittings", "[/]", "sitting", "esc", "back")
 		lines, help = m.renderAgenda(), helpLine(pairs...)
 	case vSittings:
-		lines, help = m.renderOverview(), helpLine("enter", "open", "j/k", "move", "esc", "back")
+		pairs := []string{"enter", "open", "j/k", "move", "esc", "back"}
+		if m.ovScope == "" {
+			pairs = m.filterPairs(pairs...)
+		}
+		lines, help = m.renderOverview(), helpLine(pairs...)
 	case vItem:
 		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
 	case vLive:
 		lines, help = m.renderLive(), helpLine("space", "timer", "n/p", "next/previous", "s", "summary", "D", "decision",
 			"t", "action", "-", "defer", "h", "hold", "esc", "agenda")
 	case vActions:
-		lines, help = m.renderActions(), helpLine("space", "done/open", "o", "show done", "esc", "back")
+		lines, help = m.renderActions(), helpLine(m.filterPairs("space", "done/open", "o", "show done", "esc", "back")...)
 	}
 	foot := help
 	switch {
@@ -116,6 +144,14 @@ func (m *model) renderMain() ([]string, string) {
 		foot = helpLine("?", m.tr("aide", "help")) + sMuted.Render(" · ") + help
 	}
 	return lines, foot
+}
+
+// filterPairs adds the sphere filter to a footer when several spheres are shown.
+func (m *model) filterPairs(pairs ...string) []string {
+	if !m.multi() {
+		return pairs
+	}
+	return append([]string{"s", "sphere"}, pairs...)
 }
 
 // window keeps the selected line on screen.
@@ -139,7 +175,7 @@ func (m *model) renderMeetings() []string {
 				next += "  " + sWarn.Render(fmt.Sprintf("%d proposed", r.proposed))
 			}
 		}
-		line := fmt.Sprintf("  %-10s %-40s %s", sBold.Render(r.alias), r.title, next)
+		line := fmt.Sprintf("  %s %-40s %s", pad(sBold.Render(m.tagged(r.sphere, r.alias)), 16), r.title, next)
 		if i == m.selM {
 			line = selectLine(line, m.w)
 		}
@@ -452,7 +488,7 @@ func (m *model) renderActions() []string {
 		if a.Due != "" && a.Due < m.now().Format("2006-01-02") && !a.Done {
 			due = sErr.Render(due)
 		}
-		line := fmt.Sprintf("  %s %s %-14s %s  %s", mark, due, a.Who, a.What, sMuted.Render(fmt.Sprintf("%s#%d", a.Item, a.N)))
+		line := fmt.Sprintf("  %s %s %-14s %s  %s", mark, due, a.Who, a.What, sMuted.Render(m.tagged(a.Sphere, fmt.Sprintf("%s#%d", a.Item, a.N))))
 		if i == m.selA {
 			line = selectLine(line, m.w)
 		}
@@ -515,6 +551,9 @@ func (m *model) renderOverview() []string {
 				out = append(out, "")
 			}
 			line = " " + sTitle.Render(r.meeting)
+			if m.multi() && m.filter == "" {
+				line = " " + sphereTag(r.sphere) + sMuted.Render(":") + sTitle.Render(r.meeting)
+			}
 		case r.agenda != nil:
 			s := r.agenda.Sitting
 			total := r.agenda.Planned

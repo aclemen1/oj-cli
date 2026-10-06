@@ -19,8 +19,8 @@ const sittingOrAlias = "Sitting id, e.g. RDIR-2026-10-08, or a meeting alias for
 
 func registerSittings() {
 	spec.Register(&spec.Action{
-		Category: "sitting", Name: "ls",
-		Summary: "List the sittings of a meeting, or of every meeting.",
+		Category: "sitting", Name: "ls", Read: true,
+		Summary: "List the sittings of a meeting, or of every meeting of every sphere.",
 		Discussion: "Without --since: sittings still open or to come, and the next --ahead dates of each recurrence. " +
 			"A date of the recurrence with nothing written yet is listed with virtual: true.",
 		Params: []spec.Param{
@@ -33,31 +33,44 @@ func registerSittings() {
 		},
 		Examples: []string{"oj sitting ls RDIR --sphere pro", "oj sitting ls --since 2026-01-01 --state minuted --sphere pro",
 			"oj sitting ls --with-items --format text --sphere pro"},
-		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
 			ahead, err := strconv.Atoi(ctx.Str("ahead"))
 			if err != nil || ahead < 0 {
 				return nil, spec.UserError("--ahead takes a number, got %q. Example: --ahead 5", ctx.Str("ahead"))
 			}
-			if ctx.Bool("with-items") {
-				return st.Overviews(ctx.Str("meeting"), ctx.Str("since"), ahead)
-			}
-			var ms []*store.Meeting
-			if a := ctx.Str("meeting"); a != "" {
-				m, err := st.Meeting(a)
-				if err != nil {
-					return nil, err
-				}
-				ms = []*store.Meeting{m}
-			} else if ms, err = st.Meetings(); err != nil {
+			if stores, err = narrow(stores, ctx.Str("meeting")); err != nil {
 				return nil, err
 			}
+			if ctx.Bool("with-items") {
+				out := []store.Overview{}
+				for _, st := range stores {
+					l, err := st.Overviews(ctx.Str("meeting"), ctx.Str("since"), ahead)
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, l...)
+				}
+				return out, nil
+			}
 			out := []*store.Sitting{}
-			for _, m := range ms {
-				l, err := st.Sittings(m, ctx.Str("since"), ahead, ctx.Str("state"))
-				if err != nil {
+			for _, st := range stores {
+				var ms []*store.Meeting
+				if a := ctx.Str("meeting"); a != "" {
+					m, err := st.Meeting(a)
+					if err != nil {
+						return nil, err
+					}
+					ms = []*store.Meeting{m}
+				} else if ms, err = st.Meetings(); err != nil {
 					return nil, err
 				}
-				out = append(out, l...)
+				for _, m := range ms {
+					l, err := st.Sittings(m, ctx.Str("since"), ahead, ctx.Str("state"))
+					if err != nil {
+						return nil, err
+					}
+					out = append(out, l...)
+				}
 			}
 			return out, nil
 		}),
@@ -66,22 +79,29 @@ func registerSittings() {
 				textOverviews(w, ovs)
 				return
 			}
-			for _, s := range r.([]*store.Sitting) {
+			l := r.([]*store.Sitting)
+			var sph []string
+			for _, s := range l {
+				sph = append(sph, s.Sphere)
+			}
+			show := spheresIn(sph...) > 1
+			for _, s := range l {
 				v := ""
 				if s.Virtual {
 					v = " (from the recurrence)"
 				}
-				fmt.Fprintf(w, "%-20s %s %-5s %-9s%s\n", s.ID, weekday(s.Date), s.Time, s.State, v)
+				fmt.Fprintf(w, "%-26s %s %-5s %-9s%s\n", tag(show, s.Sphere)+s.ID, weekday(s.Date), s.Time, s.State, v)
 			}
 		},
 	})
 	spec.Register(&spec.Action{
-		Category: "sitting", Name: "show",
+		Category: "sitting", Name: "show", Read: true,
 		Summary:  "Show the agenda of a sitting: ordered items with slots, total time, proposals apart.",
 		Params:   []spec.Param{sittingArg(sittingOrAlias), sphereParam()},
-		Examples: []string{"oj sitting show RDIR --sphere pro", "oj sitting show RDIR-2026-10-08 --format text --sphere pro"},
-		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			return st.Agenda(ctx.Str("sitting"))
+		Examples: []string{"oj sitting show RDIR", "oj sitting show pro:RDIR-2026-10-08 --format text"},
+		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
+			a, _, err := pick(stores, ctx.Str("sitting"), func(st *store.Store) (*store.Agenda, error) { return st.Agenda(ctx.Str("sitting")) })
+			return a, err
 		}),
 		Text: func(w io.Writer, r any) { textAgenda(w, r.(*store.Agenda)) },
 	})
@@ -169,7 +189,7 @@ func registerSittings() {
 
 func textAgenda(w io.Writer, a *store.Agenda) {
 	s := a.Sitting
-	head := strings.TrimSpace(fmt.Sprintf("%s · %s %s", s.ID, weekday(s.Date), s.Time))
+	head := strings.TrimSpace(fmt.Sprintf("%s · %s %s", tag(s.Sphere != "", s.Sphere)+s.ID, weekday(s.Date), s.Time))
 	fmt.Fprintf(w, "%s\n%s · %s", a.Title, head, s.State)
 	if s.Place != "" {
 		fmt.Fprintf(w, " · %s", s.Place)
@@ -219,11 +239,16 @@ func textAgenda(w io.Writer, a *store.Agenda) {
 }
 
 func textOverviews(w io.Writer, ovs []store.Overview) {
+	var sph []string
+	for _, ov := range ovs {
+		sph = append(sph, ov.Sphere)
+	}
+	show := spheresIn(sph...) > 1
 	for i, ov := range ovs {
 		if i > 0 {
 			fmt.Fprintln(w)
 		}
-		fmt.Fprintf(w, "%s · %s\n", ov.Meeting, ov.Title)
+		fmt.Fprintf(w, "%s · %s\n", tag(show, ov.Sphere)+ov.Meeting, ov.Title)
 		for _, a := range ov.Sittings {
 			s := a.Sitting
 			fmt.Fprintf(w, "\n  %s  %s %s  %s  %d items, %s", s.ID, weekday(s.Date), s.Time, s.State, len(a.Items), a.Planned)

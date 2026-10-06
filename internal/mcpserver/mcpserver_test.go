@@ -136,3 +136,35 @@ func TestResource(t *testing.T) {
 		t.Fatalf("agenda resource: %s", res.Contents[0].Text)
 	}
 }
+
+func TestReadsCoverServedSpheres(t *testing.T) {
+	cs, _ := connect(t, "perso", "pro")
+	t.Setenv("OJ_SPHERE", "")
+	if e, ok := callTool(t, cs, "meeting_add", map[string]any{"alias": "RDIR", "title": "Séance"}); ok || !strings.Contains(e["message"].(string), "sphere") {
+		t.Fatalf("a write without a sphere: %v", e)
+	}
+	if _, ok := callTool(t, cs, "meeting_add", map[string]any{"alias": "pro:RDIR", "title": "Séance"}); !ok {
+		t.Fatal("a write with a qualified alias")
+	}
+	callTool(t, cs, "meeting_add", map[string]any{"alias": "FAM", "title": "Famille", "sphere": "perso"})
+	if m, ok := callTool(t, cs, "meeting_show", map[string]any{"alias": "FAM"}); !ok || m["sphere"] != "perso" {
+		t.Fatalf("a read across spheres: %v", m)
+	}
+	tools, _ := cs.ListTools(context.Background(), nil)
+	for _, tl := range tools.Tools {
+		b, _ := json.Marshal(tl.InputSchema)
+		if strings.Contains(string(b), `"required":["sphere"`) || strings.Contains(string(b), `,"sphere"]`) {
+			t.Fatalf("%s requires sphere: %s", tl.Name, b)
+		}
+	}
+}
+
+func TestQualifiedIDIsSealed(t *testing.T) {
+	cs, _ := connect(t, "pro")
+	if e, ok := callTool(t, cs, "meeting_add", map[string]any{"alias": "perso:FAM", "title": "Famille"}); ok {
+		t.Fatalf("a perso write through a pro server: %v", e)
+	}
+	if e, ok := callTool(t, cs, "meeting_show", map[string]any{"alias": "perso:FAM"}); ok {
+		t.Fatalf("a perso read through a pro server: %v", e)
+	}
+}

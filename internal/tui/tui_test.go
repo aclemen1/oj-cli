@@ -521,3 +521,56 @@ func TestEscBackQQuits(t *testing.T) {
 		t.Fatal("q should quit from the agenda")
 	}
 }
+
+func TestSeveralSpheres(t *testing.T) {
+	_, pro, now := setup(t)
+	root := t.TempDir()
+	if err := store.Init(root, "none"); err != nil {
+		t.Fatal(err)
+	}
+	perso := &store.Store{Sphere: "perso", Root: root, VCS: "none", By: "alain", Now: func() time.Time { return *now }}
+	if _, err := perso.AddMeeting("FAM", store.MeetingInput{Title: "Conseil de famille", TZ: "Europe/Zurich"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := perso.AddSitting("FAM", "2026-10-10", "18:00", ""); err != nil {
+		t.Fatal(err)
+	}
+	m := newModel(perso, pro)
+	m.now = func() time.Time { return *now }
+	m.w, m.h, m.helpOff = 140, 40, true
+	drive(t, m, m.Init())
+	s := screen(m)
+	if !strings.Contains(s, "perso:FAM") || !strings.Contains(s, "pro:RDIR") || !strings.Contains(s, "s sphere") {
+		t.Fatalf("both spheres:\n%s", s)
+	}
+	press(t, m, "s")
+	if s := screen(m); m.filter != "perso" || strings.Contains(s, "RDIR") {
+		t.Fatalf("filter perso (%q):\n%s", m.filter, s)
+	}
+	press(t, m, "s")
+	press(t, m, "s")
+	if m.filter != "" || len(m.meetings) != 2 {
+		t.Fatalf("filter back to all: %q %d", m.filter, len(m.meetings))
+	}
+	// Opening a meeting makes its sphere the one changes go to.
+	for i, r := range m.meetings {
+		if r.alias == "RDIR" {
+			m.selM = i
+		}
+	}
+	press(t, m, "enter")
+	if m.st != pro || m.agenda == nil || m.agenda.Sitting.Meeting != "RDIR" {
+		t.Fatalf("open RDIR in pro: %s", m.st.Sphere)
+	}
+	press(t, m, "n")
+	typeText(t, m, "Divers")
+	press(t, m, "enter")
+	if _, err := pro.Item("RDIR-4"); err != nil {
+		t.Fatalf("item added in pro: %v", err)
+	}
+	press(t, m, "esc")
+	press(t, m, "S")
+	if s := screen(m); !strings.Contains(s, "perso:FAM") || !strings.Contains(s, "pro:RDIR") {
+		t.Fatalf("overview of both spheres:\n%s", s)
+	}
+}

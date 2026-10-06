@@ -10,6 +10,7 @@ import (
 
 // ActionRow is one action decided in a sitting, with where it comes from.
 type ActionRow struct {
+	Sphere  string `json:"sphere,omitempty"`
 	Item    string `json:"item"`
 	Title   string `json:"title"`
 	Sitting string `json:"sitting"`
@@ -43,10 +44,16 @@ func (s *Store) Actions(f ActionFilter) ([]ActionRow, error) {
 					f.DueBefore != "" && (a.Due == "" || a.Due >= f.DueBefore):
 					continue
 				}
-				out = append(out, ActionRow{Item: it.ID, Title: it.Title, Sitting: e.Sitting, N: i + 1, Status: e.Outcome.Status, ActionItem: a})
+				out = append(out, ActionRow{Sphere: s.Sphere, Item: it.ID, Title: it.Title, Sitting: e.Sitting, N: i + 1, Status: e.Outcome.Status, ActionItem: a})
 			}
 		}
 	}
+	SortActions(out)
+	return out, nil
+}
+
+// SortActions puts open actions first, then by due date, undated last.
+func SortActions(out []ActionRow) {
 	sort.SliceStable(out, func(i, j int) bool {
 		a, b := out[i], out[j]
 		if a.Done != b.Done {
@@ -57,7 +64,6 @@ func (s *Store) Actions(f ActionFilter) ([]ActionRow, error) {
 		}
 		return a.Due < b.Due
 	})
-	return out, nil
 }
 
 // SetActionDone marks action n (from 1) of an item's outcome done or open.

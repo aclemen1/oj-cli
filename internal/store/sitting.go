@@ -12,6 +12,7 @@ import (
 )
 
 type Sitting struct {
+	Sphere   string     `yaml:"-" json:"sphere,omitempty"`
 	ID       string     `yaml:"id" json:"id"`
 	Meeting  string     `yaml:"meeting" json:"meeting"`
 	Date     string     `yaml:"date" json:"date"`
@@ -37,7 +38,7 @@ func (s *Store) sittingPath(alias, key string) string {
 }
 
 func virtualSitting(m *Meeting, o occurrence) *Sitting {
-	return &Sitting{ID: m.Alias + "-" + o.Date, Meeting: m.Alias, Date: o.Date, Time: o.Time,
+	return &Sitting{Sphere: m.Sphere, ID: m.Alias + "-" + o.Date, Meeting: m.Alias, Date: o.Date, Time: o.Time,
 		Place: m.Place, Duration: m.Duration, State: "planned", Virtual: true}
 }
 
@@ -54,7 +55,7 @@ func (s *Store) Sitting(id string) (*Sitting, *Meeting, error) {
 	sit := &Sitting{}
 	body, err := readDoc(s.sittingPath(alias, key), sit)
 	if err == nil {
-		sit.Notes = body
+		sit.Notes, sit.Sphere = body, s.Sphere
 		return sit, m, nil
 	}
 	if !os.IsNotExist(err) {
@@ -95,7 +96,7 @@ func (s *Store) sittingFiles(alias string) ([]*Sitting, error) {
 		if err != nil {
 			return nil, err
 		}
-		sit.Notes = body
+		sit.Notes, sit.Sphere = body, s.Sphere
 		out = append(out, sit)
 	}
 	return out, nil
@@ -363,7 +364,7 @@ func (s *Store) AddSitting(alias, date, at, place string) (*Sitting, error) {
 		if place == "" {
 			place = m.Place
 		}
-		sit = &Sitting{ID: m.Alias + "-" + key, Meeting: m.Alias, Date: date, Time: at, Place: place,
+		sit = &Sitting{Sphere: s.Sphere, ID: m.Alias + "-" + key, Meeting: m.Alias, Date: date, Time: at, Place: place,
 			Duration: m.Duration, State: "planned", Virtual: true}
 		return s.saveSitting(sit)
 	})

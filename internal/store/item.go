@@ -13,6 +13,7 @@ import (
 )
 
 type Item struct {
+	Sphere      string   `yaml:"-" json:"sphere,omitempty"`
 	ID          string   `yaml:"id" json:"id"`
 	Meeting     string   `yaml:"meeting" json:"meeting"`
 	Title       string   `yaml:"title" json:"title"`
@@ -94,7 +95,7 @@ func (s *Store) Item(id string) (*Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	it.Notes = body
+	it.Notes, it.Sphere = body, s.Sphere
 	return it, nil
 }
 
@@ -121,7 +122,7 @@ func (s *Store) items(alias string) ([]*Item, error) {
 		if err != nil {
 			return nil, err
 		}
-		it.Notes = body
+		it.Notes, it.Sphere = body, s.Sphere
 		out = append(out, it)
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].num() < out[j].num() })
@@ -292,7 +293,7 @@ func (s *Store) openItemWithRef(alias string, refs []string) (*Item, error) {
 // addItem writes a new item of m, under a lock the caller holds; the caller saves m.
 func (s *Store) addItem(m *Meeting, sit *Sitting, in ItemInput, accept bool) (*Item, error) {
 	m.Counter++
-	it := &Item{ID: fmt.Sprintf("%s-%d", m.Alias, m.Counter), Meeting: m.Alias, Title: strings.TrimSpace(in.Title),
+	it := &Item{Sphere: s.Sphere, ID: fmt.Sprintf("%s-%d", m.Alias, m.Counter), Meeting: m.Alias, Title: strings.TrimSpace(in.Title),
 		Owner: in.Owner, Kind: in.Kind, Duration: in.Duration, Expected: in.Expected,
 		Attachments: in.Attach, Refs: in.Refs, State: "proposed", Notes: in.Notes}
 	if it.Kind == "" {

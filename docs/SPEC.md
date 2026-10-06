@@ -22,8 +22,9 @@ hooks and identifiers, never by reading their data.
    history across sittings stays in one place.
 3. **Plain files.** A store is a directory of Markdown files with YAML
    frontmatter. It is readable, diffable and versionable without `oj`.
-4. **Spheres do not meet.** Each sphere has its own root. No action, search
-   or hook crosses spheres.
+4. **Spheres stay apart.** Each sphere has its own root. A read may show
+   several spheres side by side; a write, a hook or a reference stays in one
+   sphere.
 5. **Agnostic.** `oj` knows no particular calendar, dossier manager, memory
    or artefact store. It reads dates from a calendar provider and announces
    changes through hooks.
@@ -224,7 +225,8 @@ sitting that did not happen.
 | `actions ls [<alias>] [--who] [--state open\|done\|all] [--due-before]` | actions across sittings of a meeting or the sphere, open first by due date |
 | `actions done <item> <n> [--sitting] [--undo]` | marks action n of an outcome done, or open again; rewriting the outcome keeps it |
 
-Every action takes `--sphere` (or `OJ_SPHERE`) and returns the envelope.
+Every action takes `--sphere` and returns the envelope. A read covers every
+sphere unless `--sphere` narrows it; a write needs a sphere (§9).
 Errors name the canonical invocation, echo the offending values and show an
 example.
 
@@ -245,7 +247,9 @@ The actions are defined once (action specs) and served as CLI commands and as
 MCP tools (one tool per action, named `<category>_<action>`: `item_add`).
 Sittings and items are also MCP resources `oj://<sphere>/<id>`.
 
-- `oj mcp --spheres <list>` serves only those spheres; with one sphere,
+- `oj mcp --spheres <list>` serves only those spheres. `sphere` is never a
+  required argument: a read covers every served sphere, a write takes
+  `sphere`, a qualified id or the server's `OJ_SPHERE`; with one sphere,
   `sphere` defaults to it.
 - Everything done through MCP is logged as `agent:…`, and an outcome set
   through MCP is always a draft: a `by` without the `agent:` prefix gets it.
@@ -344,10 +348,19 @@ spheres:
 
 ## 9. Spheres and access
 
-- A sphere is a root and a name. `--sphere` (or `OJ_SPHERE`) is required by
-  every action; there is no default sphere in the configuration.
+- A sphere is a root and a name; there is no default sphere in the
+  configuration.
+- A read (`ls`, `show`) covers every configured sphere, or the spheres served
+  by `oj mcp`, unless `--sphere` or a qualified id narrows it. When the
+  output holds several spheres, each object shows its sphere, and the text
+  output prefixes it: `pro:RDIR-3`.
+- An id found in several spheres is an error that names the qualified forms
+  (`pro:RDIR`, `perso:RDIR`).
+- A write needs a sphere, taken in this order: a qualified id
+  (`pro:RDIR-3`), `--sphere`, `OJ_SPHERE`. A qualified id that names another
+  sphere than `--sphere` is an error. `OJ_SPHERE` applies to writes only.
 - `oj mcp --spheres <list>` serves only those spheres; a call naming
-  another sphere fails.
+  another sphere, by `sphere` or by a qualified id, fails.
 - Hooks run with the sphere of the event; a hook configured for one sphere is
   never run for another.
 - `oj://` references and `refs` are kept as text; `oj` never follows a
@@ -381,6 +394,12 @@ actions open on the sitting and on the selected item for their states, and
 how to navigate. It sits at the right on a wide terminal, below otherwise,
 in French for a sphere rendered in French, in English otherwise.
 
+The TUI shows every sphere (or the one given by `--sphere`). With several,
+the meetings list, the sittings view of every meeting and the actions view
+prefix each line with its sphere, and `s` cycles the filter: all spheres,
+then each sphere in turn. Opening a meeting makes its sphere the one changes
+go to; the header names it.
+
 The agenda also lists, under "Deferred", the items deferred from this
 sitting to a later one, so that `u` (undefer) can bring them back. `S`
 opens the sittings view: recent and upcoming sittings, each with its items,
@@ -389,19 +408,20 @@ an agenda for its meeting. `M` moves the selected item to a planned sitting
 picked from a list; `o` jumps to its ref with the sphere's `open` command
 (for an office dossier: focus its session).
 
-The TUI keeps its state per sphere in `$XDG_STATE_HOME/oj/tui-<sphere>.json`
-(`~/.local/state/oj/…`): view, sitting, selected item, item opened, help
+The TUI keeps its state in `$XDG_STATE_HOME/oj/tui.json`, or
+`tui-<sphere>.json` when it shows one sphere (`~/.local/state/oj/…`): sphere
+filter, sphere of the open meeting, view, sitting, selected item, item opened, help
 shown or hidden, actions filter, sittings view scope, and in a live sitting
 the current item and the timers (a running timer keeps counting). It comes
 back as it was at the next start.
 
 | View | Shows | Actions |
 |---|---|---|
-| Meetings | alias, next sitting, items on the agenda and proposed | open (`enter`), actions (`A`) |
+| Meetings | alias, next sitting, items on the agenda and proposed | open (`enter`), actions (`A`), sphere filter (`s`) |
 | Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart; under the list, a pane with the selected item (owner, deferrals, question, attachments, refs, notes, outcome, and what the ref commands say about the refs' targets) | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
 | Item | fields, notes, history with outcomes and actions, the full text of each ref's target, log | `e` edit in `$EDITOR` (then committed) |
 | Sitting (live) | the current item, a timer per item, elapsed against plan, the same pane for the current item | `space` timer, `n`/`p` item, `s` summary, `D` decision, `t` action, `-` defer, `h` hold |
-| Actions | actions by due date, overdue in red | `space` done or open, `o` show done |
+| Actions | actions by due date, overdue in red | `space` done or open, `o` show done, `s` sphere filter |
 
 ## 12. Configuration
 

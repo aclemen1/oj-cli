@@ -31,7 +31,13 @@ func itemFields() []spec.Param {
 }
 
 func textItems(w io.Writer, r any) {
-	for _, it := range r.([]*store.Item) {
+	l := r.([]*store.Item)
+	var sph []string
+	for _, it := range l {
+		sph = append(sph, it.Sphere)
+	}
+	show := spheresIn(sph...) > 1
+	for _, it := range l {
 		owner := ""
 		if it.Owner != "" {
 			owner = " — " + it.Owner
@@ -40,7 +46,7 @@ func textItems(w io.Writer, r any) {
 		if sit == "" {
 			sit = "-"
 		}
-		fmt.Fprintf(w, "%-10s %-9s %-18s %-5s %s%s\n", it.ID, it.State, sit, it.Duration, it.Title, owner)
+		fmt.Fprintf(w, "%-16s %-9s %-18s %-5s %s%s\n", tag(show, it.Sphere)+it.ID, it.State, sit, it.Duration, it.Title, owner)
 	}
 }
 
@@ -71,8 +77,8 @@ func registerItems() {
 		}),
 	})
 	spec.Register(&spec.Action{
-		Category: "item", Name: "ls",
-		Summary: "List items across meetings or in one; with --ref, the items of one dossier or target, across sittings.",
+		Category: "item", Name: "ls", Read: true,
+		Summary: "List items across meetings and spheres, or in one meeting; with --ref, the items of one dossier or target, across sittings.",
 		Params: []spec.Param{
 			{Name: "meeting", Kind: spec.String, Positional: true, Help: "Meeting alias. Defaults to every meeting."},
 			sphereParam(),
@@ -82,22 +88,34 @@ func registerItems() {
 			{Name: "sitting", Kind: spec.String, Help: "Keep the items planned for this sitting."},
 			{Name: "search", Kind: spec.String, Help: "Keep the items whose title, question or notes contain this text."},
 		},
-		Examples: []string{"oj item ls RDIR --sphere pro", "oj item ls --ref office:U-0042 --state all --sphere pro"},
-		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			return st.Items(store.ItemFilter{Meeting: ctx.Str("meeting"), State: ctx.Str("state"), Owner: ctx.Str("owner"),
-				Ref: ctx.Str("ref"), Sitting: ctx.Str("sitting"), Search: ctx.Str("search")})
+		Examples: []string{"oj item ls RDIR", "oj item ls --ref office:U-0042 --state all", "oj item ls --sphere pro"},
+		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
+			stores, err := narrow(stores, ctx.Str("meeting"))
+			if err != nil {
+				return nil, err
+			}
+			out := []*store.Item{}
+			for _, st := range stores {
+				l, err := st.Items(store.ItemFilter{Meeting: ctx.Str("meeting"), State: ctx.Str("state"), Owner: ctx.Str("owner"),
+					Ref: ctx.Str("ref"), Sitting: ctx.Str("sitting"), Search: ctx.Str("search")})
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, l...)
+			}
+			return out, nil
 		}),
 		Text: textItems,
 	})
 	spec.Register(&spec.Action{
-		Category: "item", Name: "show",
+		Category: "item", Name: "show", Read: true,
 		Summary: "Show an item: fields, history across sittings with outcomes, log.",
 		Discussion: "With --with-refs, each ref whose scheme the sphere's configuration knows (refs: under the sphere) " +
 			"comes with what its command says about the target, e.g. the dossier behind office:U-0042.",
 		Params:   []spec.Param{itemArg(), sphereParam(), {Name: "with-refs", Kind: spec.Bool, Help: "Add a summary of each ref's target."}},
-		Examples: []string{"oj item show RDIR-17 --sphere pro", "oj item show RDIR-17 --with-refs --sphere pro"},
-		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			it, err := st.Item(ctx.Str("id"))
+		Examples: []string{"oj item show RDIR-17", "oj item show pro:RDIR-17 --with-refs"},
+		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
+			it, st, err := pick(stores, ctx.Str("id"), func(st *store.Store) (*store.Item, error) { return st.Item(ctx.Str("id")) })
 			if err != nil || !ctx.Bool("with-refs") {
 				return it, err
 			}

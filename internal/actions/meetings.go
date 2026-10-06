@@ -9,6 +9,7 @@ import (
 )
 
 type meetingSummary struct {
+	Sphere   string `json:"sphere"`
 	Alias    string `json:"alias"`
 	Title    string `json:"title"`
 	Next     string `json:"next,omitempty"`
@@ -73,42 +74,51 @@ func registerMeetings() {
 		}),
 	})
 	spec.Register(&spec.Action{
-		Category: "meeting", Name: "show",
+		Category: "meeting", Name: "show", Read: true,
 		Summary:  "Show a meeting: recurrence, members, defaults, log.",
-		Params:   []spec.Param{{Name: "alias", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias."}, sphereParam()},
-		Examples: []string{"oj meeting show RDIR --sphere pro"},
-		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			return st.Meeting(ctx.Str("alias"))
+		Params:   []spec.Param{{Name: "alias", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias, or sphere:alias."}, sphereParam()},
+		Examples: []string{"oj meeting show RDIR", "oj meeting show pro:RDIR"},
+		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
+			m, _, err := pick(stores, ctx.Str("alias"), func(st *store.Store) (*store.Meeting, error) { return st.Meeting(ctx.Str("alias")) })
+			return m, err
 		}),
 	})
 	spec.Register(&spec.Action{
-		Category: "meeting", Name: "ls",
-		Summary:  "List the meetings of a sphere with their next sitting.",
+		Category: "meeting", Name: "ls", Read: true,
+		Summary:  "List the meetings of every sphere (or of one) with their next sitting.",
 		Params:   []spec.Param{sphereParam()},
-		Examples: []string{"oj meeting ls --sphere pro"},
-		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
-			ms, err := st.Meetings()
-			if err != nil {
-				return nil, err
-			}
+		Examples: []string{"oj meeting ls", "oj meeting ls --sphere pro"},
+		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
 			out := []meetingSummary{}
-			for _, m := range ms {
-				sum := meetingSummary{Alias: m.Alias, Title: m.Title}
-				if a, err := st.Agenda(m.Alias); err == nil {
-					sum.Next, sum.NextDate = a.Sitting.ID, a.Sitting.Date
-					sum.Accepted, sum.Proposed = len(a.Items), len(a.Proposed)
+			for _, st := range stores {
+				ms, err := st.Meetings()
+				if err != nil {
+					return nil, err
 				}
-				out = append(out, sum)
+				for _, m := range ms {
+					sum := meetingSummary{Sphere: st.Sphere, Alias: m.Alias, Title: m.Title}
+					if a, err := st.Agenda(m.Alias); err == nil {
+						sum.Next, sum.NextDate = a.Sitting.ID, a.Sitting.Date
+						sum.Accepted, sum.Proposed = len(a.Items), len(a.Proposed)
+					}
+					out = append(out, sum)
+				}
 			}
 			return out, nil
 		}),
 		Text: func(w io.Writer, r any) {
-			for _, m := range r.([]meetingSummary) {
+			l := r.([]meetingSummary)
+			var sph []string
+			for _, m := range l {
+				sph = append(sph, m.Sphere)
+			}
+			show := spheresIn(sph...) > 1
+			for _, m := range l {
 				next := "no upcoming sitting"
 				if m.Next != "" {
 					next = fmt.Sprintf("next %s: %d on the agenda, %d proposed", m.Next, m.Accepted, m.Proposed)
 				}
-				fmt.Fprintf(w, "%-10s %-40s %s\n", m.Alias, m.Title, next)
+				fmt.Fprintf(w, "%-16s %-40s %s\n", tag(show, m.Sphere)+m.Alias, m.Title, next)
 			}
 		},
 	})
