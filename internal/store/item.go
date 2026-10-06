@@ -30,6 +30,8 @@ type Item struct {
 	History      []Entry    `yaml:"history,omitempty" json:"history,omitempty"`
 	Log          []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
 	Notes        string     `yaml:"-" json:"notes,omitempty"`
+	// Known: item add found an open item of the meeting with one of the refs and returned it.
+	Known bool `yaml:"-" json:"known,omitempty"`
 }
 
 // Entry is what happened to an item in one sitting.
@@ -242,6 +244,9 @@ func (s *Store) AddItem(alias string, in ItemInput, accept bool, sitting string)
 			return "", err
 		}
 		if known, err := s.openItemWithRef(m.Alias, in.Refs); err != nil || known != nil {
+			if known != nil {
+				known.Known = true
+			}
 			it = known
 			return "", err
 		}

@@ -33,6 +33,9 @@ func TestCreateRef(t *testing.T) {
 	}
 	// office registering the dossier as an item finds the existing one.
 	same := must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget (office)", Refs: []string{"office:U-0099"}}, false, ""))
+	if !same.Known {
+		t.Fatal("a known ref sets known")
+	}
 	if same.ID != "RDIR-1" {
 		t.Fatalf("add with a known ref made %s", same.ID)
 	}

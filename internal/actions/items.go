@@ -49,7 +49,9 @@ func registerItems() {
 		Category: "item", Name: "add",
 		Summary: "Propose an item for a meeting; with --accept, put it on the agenda at once.",
 		Discussion: "Without --sitting the item goes to the next planned sitting. Pass --accept when the user asks to add the item " +
-			"to the agenda; without it the chair accepts it later. Returns the item with its id.",
+			"to the agenda; without it the chair accepts it later. Returns the item with its id. " +
+			"To put something tracked elsewhere on the agenda (e.g. a dossier), pass its --ref: when an open item of the meeting " +
+			"already carries that ref, that item is returned with known: true and nothing is added.",
 		Params: append([]spec.Param{
 			{Name: "meeting", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias, e.g. RDIR."},
 			{Name: "title", Kind: spec.String, Positional: true, Required: true, Help: "One line."},
@@ -70,7 +72,7 @@ func registerItems() {
 	})
 	spec.Register(&spec.Action{
 		Category: "item", Name: "ls",
-		Summary: "List items across meetings or in one.",
+		Summary: "List items across meetings or in one; with --ref, the items of one dossier or target, across sittings.",
 		Params: []spec.Param{
 			{Name: "meeting", Kind: spec.String, Positional: true, Help: "Meeting alias. Defaults to every meeting."},
 			sphereParam(),
