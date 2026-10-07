@@ -153,6 +153,9 @@ func (s *Store) doc(sit *Sitting, m *Meeting, kind string, final bool) (*Doc, er
 	if err != nil {
 		return nil, err
 	}
+	if on, err = s.withStanding(sit, m, on); err != nil {
+		return nil, err
+	}
 	lang := s.lang(m)
 	d := &Doc{Kind: kind, Lang: lang, Meeting: m, Sitting: sit, Date: longDate(sit.Date, lang), Final: final}
 	var clock time.Time

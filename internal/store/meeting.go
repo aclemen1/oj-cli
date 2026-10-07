@@ -13,22 +13,24 @@ import (
 )
 
 type Meeting struct {
-	Sphere       string     `yaml:"-" json:"sphere,omitempty"`
-	Alias        string     `yaml:"alias" json:"alias"`
-	Title        string     `yaml:"title" json:"title"`
-	RRule        string     `yaml:"rrule,omitempty" json:"rrule,omitempty"`
-	Duration     string     `yaml:"duration,omitempty" json:"duration,omitempty"`
-	Place        string     `yaml:"place,omitempty" json:"place,omitempty"`
-	Chair        string     `yaml:"chair,omitempty" json:"chair,omitempty"`
-	Members      []string   `yaml:"members,omitempty" json:"members,omitempty"`
-	Refs         []string   `yaml:"refs,omitempty" json:"refs,omitempty"`
-	ItemDuration string     `yaml:"item_duration,omitempty" json:"item_duration,omitempty"`
-	ItemKind     string     `yaml:"item_kind,omitempty" json:"item_kind,omitempty"`
-	Lang         string     `yaml:"lang,omitempty" json:"lang,omitempty"`
-	Calendar     *CalLink   `yaml:"calendar,omitempty" json:"calendar,omitempty"`
-	Counter      int        `yaml:"counter" json:"-"`
-	Log          []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
-	Notes        string     `yaml:"-" json:"notes,omitempty"`
+	Sphere       string   `yaml:"-" json:"sphere,omitempty"`
+	Alias        string   `yaml:"alias" json:"alias"`
+	Title        string   `yaml:"title" json:"title"`
+	RRule        string   `yaml:"rrule,omitempty" json:"rrule,omitempty"`
+	Duration     string   `yaml:"duration,omitempty" json:"duration,omitempty"`
+	Place        string   `yaml:"place,omitempty" json:"place,omitempty"`
+	Chair        string   `yaml:"chair,omitempty" json:"chair,omitempty"`
+	Members      []string `yaml:"members,omitempty" json:"members,omitempty"`
+	Refs         []string `yaml:"refs,omitempty" json:"refs,omitempty"`
+	ItemDuration string   `yaml:"item_duration,omitempty" json:"item_duration,omitempty"`
+	ItemKind     string   `yaml:"item_kind,omitempty" json:"item_kind,omitempty"`
+	Lang         string   `yaml:"lang,omitempty" json:"lang,omitempty"`
+	Calendar     *CalLink `yaml:"calendar,omitempty" json:"calendar,omitempty"`
+	// Standing: recurring items, on the agenda of every sitting.
+	Standing []Standing `yaml:"standing,omitempty" json:"standing,omitempty"`
+	Counter  int        `yaml:"counter" json:"-"`
+	Log      []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
+	Notes    string     `yaml:"-" json:"notes,omitempty"`
 }
 
 var Kinds = []string{"info", "discussion", "decision"}

@@ -17,6 +17,56 @@ import (
 // The watch sleeps between looks; tests send its messages themselves.
 func init() { watchEvery = 0 }
 
+func TestStandingInTUI(t *testing.T) {
+	m, st, now := setup(t)
+	if _, err := st.AddStanding("RDIR", store.Standing{Key: "suite", Title: "Date de la prochaine séance", Duration: "5m"}); err != nil {
+		t.Fatal(err)
+	}
+	press(t, m, "enter")
+	last := len(m.agenda.Items) - 1
+	if !m.agenda.Items[last].Item.Virtual {
+		t.Fatal("the recurring item goes at the end")
+	}
+	m.sel = last
+	if s := screen(m); !strings.Contains(s, "↻ suite") || !strings.Contains(s, "recurring item suite") {
+		t.Fatalf("virtual recurring item:\n%s", s)
+	}
+	// Moving an item writes the recurring ones first, then moves.
+	m.sel = 0
+	press(t, m, "J")
+	for _, ai := range m.agenda.Items {
+		if ai.Item.Virtual {
+			t.Fatal("J should have written the recurring item")
+		}
+	}
+	if m.agenda.Items[1].Item.Title != "Budget 2027" || m.agenda.Items[2].Item.StandingKey() != "suite" {
+		t.Fatalf("order after J: %v", agendaIDs(m))
+	}
+	// The next sitting shows its own instance; the live timer follows it when written.
+	press(t, m, "]")
+	press(t, m, "l")
+	press(t, m, "space")
+	*now = now.Add(2 * time.Minute)
+	press(t, m, "s")
+	typeText(t, m, "Le 22")
+	press(t, m, "enter")
+	it := m.agenda.Items[0].Item
+	if it.Virtual || it.StandingKey() != "suite" || it.History[0].Outcome.Summary != "Le 22" {
+		t.Fatalf("live outcome on a recurring item %+v", it)
+	}
+	if s := screen(m); !strings.Contains(s, "2:00") {
+		t.Fatalf("timer lost when the item was written:\n%s", s)
+	}
+}
+
+func agendaIDs(m *model) []string {
+	var l []string
+	for _, ai := range m.agenda.Items {
+		l = append(l, idLabel(ai.Item))
+	}
+	return l
+}
+
 func TestWatchReloadsOnOutsideChange(t *testing.T) {
 	m, st, _ := setup(t)
 	press(t, m, "enter")

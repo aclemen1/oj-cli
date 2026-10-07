@@ -205,7 +205,11 @@ func textAgenda(w io.Writer, a *store.Agenda) {
 		if it.Owner != "" {
 			owner = " — " + it.Owner
 		}
-		fmt.Fprintf(w, "%2d. %-6s %-10s %-5s %s%s  [%s, %s]\n", i+1, ai.Start, it.ID, it.Duration, it.Title, owner, it.Kind, it.State)
+		id := it.ID
+		if it.Virtual {
+			id = "↻ " + it.Standing
+		}
+		fmt.Fprintf(w, "%2d. %-6s %-10s %-5s %s%s  [%s, %s]\n", i+1, ai.Start, id, it.Duration, it.Title, owner, it.Kind, it.State)
 		if it.Expected != "" {
 			fmt.Fprintf(w, "    ? %s\n", it.Expected)
 		}

@@ -873,6 +873,23 @@ func (m *model) current() *row {
 func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	r := m.current()
 	sit := m.agenda.Sitting
+	// A gesture on a recurring item still virtual writes it first.
+	switch k.String() {
+	case "enter", "a", "d", "x", "+", "-", "e", "c", "u", "o":
+		if r != nil && r.item.Virtual {
+			if _, err := m.real(r.item); err != nil {
+				m.setStatus(err.Error(), true)
+				return nil
+			}
+			r = m.current()
+		}
+	case "K", "J":
+		if err := m.realAll(); err != nil {
+			m.setStatus(err.Error(), true)
+			return nil
+		}
+		r = m.current()
+	}
 	switch k.String() {
 	case "esc":
 		m.view = vMeetings
@@ -1126,6 +1143,61 @@ func (m *model) jump(it *store.Item) tea.Cmd {
 	return m.do("→ "+ref, func() error { return m.st.OpenRef(ref) })
 }
 
+// real writes a recurring item that is still virtual and puts the written
+// item in its place on screen; the live timer follows it.
+func (m *model) real(it *store.Item) (*store.Item, error) {
+	if it == nil || !it.Virtual {
+		return it, nil
+	}
+	made, err := m.st.ApplyStanding(m.agenda.Sitting.ID, it.Standing)
+	if err != nil {
+		return nil, err
+	}
+	if len(made) == 0 {
+		return nil, fmt.Errorf("recurring item %s was not written", it.Standing)
+	}
+	w := made[0]
+	if d, ok := m.live.spent[spentKey(it)]; ok {
+		m.live.spent[w.ID] += d
+		delete(m.live.spent, spentKey(it))
+	}
+	for i := range m.rows {
+		if m.rows[i].item == it {
+			m.rows[i].item = w
+		}
+	}
+	for i := range m.agenda.Items {
+		if m.agenda.Items[i].Item == it {
+			m.agenda.Items[i].Item = w
+		}
+	}
+	return w, nil
+}
+
+// realAll writes every recurring item of the sitting still virtual, and reloads the agenda.
+func (m *model) realAll() error {
+	virtual := false
+	for _, ai := range m.agenda.Items {
+		virtual = virtual || ai.Item.Virtual
+	}
+	if !virtual {
+		return nil
+	}
+	if _, err := m.st.ApplyStanding(m.agenda.Sitting.ID, ""); err != nil {
+		return err
+	}
+	m.update(m.loadAgenda(m.agenda.Sitting.ID)())
+	return nil
+}
+
+// spentKey names an item in the live timer, written or not.
+func spentKey(it *store.Item) string {
+	if it.Virtual {
+		return "standing:" + it.Standing
+	}
+	return it.ID
+}
+
 func (m *model) liveItem() *store.Item {
 	if m.agenda == nil || m.live.cur >= len(m.agenda.Items) {
 		return nil
@@ -1136,14 +1208,14 @@ func (m *model) liveItem() *store.Item {
 // pause adds the running time to the current item.
 func (m *model) pause() {
 	if it := m.liveItem(); it != nil && m.live.running {
-		m.live.spent[it.ID] += m.now().Sub(m.live.since)
+		m.live.spent[spentKey(it)] += m.now().Sub(m.live.since)
 	}
 	m.live.since = m.now()
 }
 
-func (m *model) spent(id string) time.Duration {
-	d := m.live.spent[id]
-	if it := m.liveItem(); it != nil && it.ID == id && m.live.running {
+func (m *model) spent(of *store.Item) time.Duration {
+	d := m.live.spent[spentKey(of)]
+	if it := m.liveItem(); it != nil && it == of && m.live.running {
 		d += m.now().Sub(m.live.since)
 	}
 	return d
@@ -1151,6 +1223,18 @@ func (m *model) spent(id string) time.Duration {
 
 func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 	it := m.liveItem()
+	switch k.String() {
+	case "s", "D", "t", "o", "-":
+		if it != nil && it.Virtual {
+			m.pause()
+			w, err := m.real(it)
+			if err != nil {
+				m.setStatus(err.Error(), true)
+				return nil
+			}
+			it = w
+		}
+	}
 	switch k.String() {
 	case "esc":
 		m.pause()

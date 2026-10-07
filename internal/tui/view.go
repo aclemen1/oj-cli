@@ -252,7 +252,7 @@ func (m *model) renderAgenda() []string {
 		case r.proposed:
 			line = fmt.Sprintf("  %-10s %5s  %s%s", it.ID, it.Duration, it.Title, owner)
 		default:
-			line = fmt.Sprintf("%s %5s %-10s %5s  %s%s  %s", outcomeMark(r.outcome), r.start, it.ID, it.Duration, it.Title, owner,
+			line = fmt.Sprintf("%s %5s %-10s %5s  %s%s  %s", outcomeMark(r.outcome), r.start, idLabel(it), it.Duration, it.Title, owner,
 				sMuted.Render(it.Kind)+" "+stateStyle(it.State).Render(it.State))
 		}
 		if i == m.sel {
@@ -277,14 +277,29 @@ func (m *model) renderAgenda() []string {
 	return append(append(out, rows...), pane...)
 }
 
+// idLabel is the item's id, or ↻ and its key for a recurring item not written yet.
+func idLabel(it *store.Item) string {
+	if it.Virtual {
+		return "↻ " + it.Standing
+	}
+	return it.ID
+}
+
 // pane shows the content of one item under the list: owner, deferrals,
 // question, attachments, refs, notes, its outcome in this sitting, and what
 // the sphere's ref commands say about its refs (the dossier behind office:…).
 func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 	w := max(20, m.w-2)
 	maxLines = max(4, maxLines)
-	head := fmt.Sprintf("── %s · %s ", it.ID, it.Title)
+	head := fmt.Sprintf("── %s · %s ", idLabel(it), it.Title)
 	lines := []string{sTitle.Render(pad(head+strings.Repeat("─", max(0, w-ansi.StringWidth(head))), w))}
+	if k := it.StandingKey(); k != "" {
+		note := "recurring item " + k + ", one per sitting"
+		if it.Virtual {
+			note += "; written at the first change or at freeze"
+		}
+		lines = append(lines, sMuted.Render(note))
+	}
 	field := func(label, v string) {
 		if v == "" {
 			return
@@ -438,14 +453,14 @@ func (m *model) renderLive() []string {
 	for i, ai := range m.agenda.Items {
 		it := ai.Item
 		plan, _ := time.ParseDuration(it.Duration)
-		spent := m.spent(it.ID)
+		spent := m.spent(it)
 		total += spent
 		planned += plan
 		timer := clock(spent) + sMuted.Render(" / "+clock(plan))
 		if plan > 0 && spent > plan {
 			timer = sWarn.Render(clock(spent)) + sMuted.Render(" / "+clock(plan))
 		}
-		line := fmt.Sprintf("  %s %-10s %s  %s", outcomeMark(ai.Outcome), it.ID, pad(timer, 14), it.Title)
+		line := fmt.Sprintf("  %s %-10s %s  %s", outcomeMark(ai.Outcome), idLabel(it), pad(timer, 14), it.Title)
 		if i == m.live.cur {
 			line = selectLine(line, m.w)
 		}

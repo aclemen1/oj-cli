@@ -33,6 +33,9 @@ type Item struct {
 	Notes        string     `yaml:"-" json:"notes,omitempty"`
 	// Known: item add found an open item of the meeting with one of the refs and returned it.
 	Known bool `yaml:"-" json:"known,omitempty"`
+	// Virtual: a recurring item of a sitting, shown but not written yet; Standing is its key.
+	Virtual  bool   `yaml:"-" json:"virtual,omitempty"`
+	Standing string `yaml:"-" json:"standing,omitempty"`
 }
 
 // Entry is what happened to an item in one sitting.

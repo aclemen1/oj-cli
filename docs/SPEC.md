@@ -144,6 +144,26 @@ transcript. An outcome written by an agent is always a `draft`. `sitting
 minute` shows the drafts and approves them all; nothing reaches the minutes
 unapproved.
 
+### 3.4b Recurring items
+
+Some items come back at every sitting of a meeting (travel, a shared meal,
+the date of the next sitting). They are declared once, in `meeting.md`
+(`standing:`: key, title, place `start` or `end`, and optionally kind,
+duration, question, notes), with `oj standing add|ls|rm`.
+
+- Every planned sitting shows one instance of each, accepted, at the start
+  or the end of its agenda. Until someone acts on it, the instance is
+  virtual: shown (`virtual: true`, `standing: <key>`) but not written, so
+  sittings far ahead write nothing.
+- The instance is written, as an accepted item with the ref
+  `standing:<key>`, at the first change made to it (in the TUI, any gesture
+  on it), by `oj standing apply <sitting> [--key]`, or at freeze or hold.
+  It then has its own id and its own outcome.
+- An instance written and then dropped stays dropped for its sitting.
+- At the minutes, an instance with no outcome `next=done` is dropped
+  (`not reached`), not deferred: the next sitting has its own.
+- `oj standing rm` stops new instances; those already written stay.
+
 ### 3.5 Identifiers and links
 
 | Object | Id | Example |

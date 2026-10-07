@@ -290,6 +290,9 @@ func (s *Store) Agenda(arg string) (*Agenda, error) {
 	if err != nil {
 		return nil, err
 	}
+	if on, err = s.withStanding(sit, m, on); err != nil {
+		return nil, err
+	}
 	a := &Agenda{Sitting: sit, Title: m.Title, Proposed: proposed, Duration: sit.Duration, Items: []AgendaItem{},
 		Dropped: []*Item{}, Deferred: []*Item{}}
 	if a.Proposed == nil {
@@ -490,6 +493,13 @@ func (s *Store) FreezeSitting(id string, leaveProposed bool) (*Changed, error) {
 		if err := requireState(sit, "freeze", "planned"); err != nil {
 			return err
 		}
+		if made, err := s.materializeStanding(sit, m); err != nil {
+			return err
+		} else if len(made) > 0 {
+			if err := s.saveMeeting(m); err != nil {
+				return err
+			}
+		}
 		on, proposed, err := s.agendaItems(sit)
 		if err != nil {
 			return err
@@ -538,9 +548,16 @@ func (s *Store) ReopenSitting(id string) (*Sitting, error) {
 
 // HoldSitting records that the sitting took place.
 func (s *Store) HoldSitting(id string, present, excused []string) (*Sitting, error) {
-	return s.change(id, "sitting hold", func(sit *Sitting, _ *Meeting) error {
+	return s.change(id, "sitting hold", func(sit *Sitting, m *Meeting) error {
 		if err := requireState(sit, "hold", "planned", "frozen"); err != nil {
 			return err
+		}
+		if made, err := s.materializeStanding(sit, m); err != nil {
+			return err
+		} else if len(made) > 0 {
+			if err := s.saveMeeting(m); err != nil {
+				return err
+			}
 		}
 		on, _, err := s.agendaItems(sit)
 		if err != nil {
@@ -564,6 +581,8 @@ type Minuted struct {
 	Sitting  *Sitting `json:"sitting"`
 	Done     []string `json:"done"`
 	Deferred []string `json:"deferred"`
+	// Dropped: recurring items not reached; the next sitting has its own.
+	Dropped  []string `json:"dropped,omitempty"`
 	Rendered string   `json:"rendered,omitempty"`
 	Files    []string `json:"files,omitempty"`
 	Moved    []string `json:"moved,omitempty"`
@@ -606,6 +625,12 @@ func (s *Store) MinuteSitting(id string) (*Minuted, error) {
 				e.Result, it.State, it.DeferredFrom = "done", "done", ""
 				s.log(&it.Log, "done at "+sit.ID)
 				out.Done = append(out.Done, it.ID)
+			} else if it.StandingKey() != "" {
+				// The next sitting has its own instance: this one is dropped, not deferred.
+				e.Result, it.State, it.Reason = "dropped", "dropped", "not reached"
+				s.log(&it.Log, "recurring item not reached at "+sit.ID)
+				out.Dropped = append(out.Dropped, it.ID)
+				s.emit("item.dropped", it.Meeting, map[string]any{"item": it, "reason": it.Reason})
 			} else {
 				e.Result, it.State, it.Sitting, it.DeferredFrom = "deferred", "deferred", target, sit.ID
 				s.log(&it.Log, "deferred from "+sit.ID+" to "+orNone(target))
