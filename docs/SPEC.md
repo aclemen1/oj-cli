@@ -387,6 +387,12 @@ oj import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 `routine`. `esc` goes back to the previous view and never quits; `q` quits
 from any view, except in a text field, where it is typed.
 
+The TUI follows changes made by other processes (office, agents, the
+calendar sync): every 2 seconds it compares a fingerprint of the stores'
+files (count, size, latest change) and reloads the view when it changed,
+keeping the selection. A change waits while the user types or picks a
+sitting.
+
 A help panel, open by default (`?` hides it), says where the user is and
 what can be done next: in the agenda, the sitting on its cycle (planned →
 frozen → held → minuted) with what that state means and the next step, the

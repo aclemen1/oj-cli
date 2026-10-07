@@ -158,6 +158,33 @@ type model struct {
 
 	// refs caches what the sphere's ref commands say, by ref.
 	refs map[string]refEntry
+
+	// stamp is the stores' fingerprint at the last look; a change reloads the view.
+	stamp string
+}
+
+// watchEvery is how often the TUI looks for changes made by other processes
+// (office, agents, the calendar sync); 0 turns the watch off.
+var watchEvery = 2 * time.Second
+
+type watchMsg struct{ stamp string }
+
+// watch looks at the stores' fingerprint after watchEvery.
+func (m *model) watch() tea.Cmd {
+	if watchEvery == 0 {
+		return nil
+	}
+	stores := m.stores
+	return tea.Tick(watchEvery, func(time.Time) tea.Msg { return watchMsg{stamps(stores)} })
+}
+
+func stamps(stores []*store.Store) string {
+	var b strings.Builder
+	for _, st := range stores {
+		s, _ := st.Stamp()
+		b.WriteString(st.Sphere + "=" + s + ";")
+	}
+	return b.String()
 }
 
 type refEntry struct {
@@ -435,7 +462,7 @@ func tick() tea.Cmd { return tea.Tick(time.Second, func(time.Time) tea.Msg { ret
 // ------------------------------------------------------------------ update
 
 func (m *model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), m.restore())
+	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), m.restore(), m.watch())
 }
 
 func (m *model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isErr }
@@ -568,6 +595,18 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setStatus(msg.status, false)
 		}
 		return m, m.reload()
+	case watchMsg:
+		// A change waits while the user types or picks a sitting: the stamp
+		// is kept, so the next look finds it again.
+		if m.stamp == "" || msg.stamp == m.stamp {
+			m.stamp = msg.stamp
+			return m, m.watch()
+		}
+		if m.prompt != pNone || m.moving != nil {
+			return m, m.watch()
+		}
+		m.stamp = msg.stamp
+		return m, tea.Batch(m.watch(), m.reload())
 	case tickMsg:
 		if m.view == vLive && m.live.running {
 			return m, tick()

@@ -14,6 +14,42 @@ import (
 	"github.com/aclemen1/oj-cli/internal/store"
 )
 
+// The watch sleeps between looks; tests send its messages themselves.
+func init() { watchEvery = 0 }
+
+func TestWatchReloadsOnOutsideChange(t *testing.T) {
+	m, st, _ := setup(t)
+	press(t, m, "enter")
+	if len(m.agenda.Items) != 2 {
+		t.Fatalf("agenda %d items", len(m.agenda.Items))
+	}
+	send := func() {
+		_, cmd := m.Update(watchMsg{stamps(m.stores)})
+		drive(t, m, cmd)
+	}
+	send() // first look: remembers the stamp
+	time.Sleep(10 * time.Millisecond)
+	st.AddItem("RDIR", store.ItemInput{Title: "Ajouté ailleurs"}, true, "")
+	m.sel = 1
+	send()
+	if len(m.agenda.Items) != 3 || m.sel != 1 {
+		t.Fatalf("after an outside change: %d items, sel %d", len(m.agenda.Items), m.sel)
+	}
+	// While the user types, the change waits.
+	press(t, m, "n")
+	time.Sleep(10 * time.Millisecond)
+	st.AddItem("RDIR", store.ItemInput{Title: "Encore"}, true, "")
+	send()
+	if len(m.agenda.Items) != 3 {
+		t.Fatal("no reload during a prompt")
+	}
+	press(t, m, "esc")
+	send()
+	if len(m.agenda.Items) != 4 {
+		t.Fatalf("the waiting change is applied after the prompt: %d items", len(m.agenda.Items))
+	}
+}
+
 func drive(t *testing.T, m *model, cmd tea.Cmd) {
 	t.Helper()
 	if cmd == nil {
