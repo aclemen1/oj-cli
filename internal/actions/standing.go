@@ -54,6 +54,30 @@ func init() {
 		},
 	})
 	spec.Register(&spec.Action{
+		Category: "standing", Name: "from",
+		Summary: "Make an item recurring: declare a recurring item from its title, kind, duration, question and notes; the item becomes its instance.",
+		Params: []spec.Param{itemArg(), sphereParam(),
+			{Name: "place", Kind: spec.String, Default: "end", Enum: store.Places, Help: "Where it goes in the agendas to come."},
+			{Name: "key", Kind: spec.String, Help: "Short key. Defaults to one made from the title."}},
+		Effects:  []string{"Adds the recurring item to meeting.md and the ref standing:<key> to the item."},
+		Examples: []string{"oj standing from PSEC-6 --place end --sphere pro"},
+		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+			return st.MakeStanding(ctx.Str("id"), ctx.Str("place"), ctx.Str("key"))
+		}),
+	})
+	spec.Register(&spec.Action{
+		Category: "standing", Name: "place",
+		Summary: "Put a recurring item at the start or the end of the agendas to come.",
+		Params: []spec.Param{{Name: "meeting", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias."},
+			{Name: "key", Kind: spec.String, Positional: true, Required: true, Help: "Key of the recurring item."},
+			{Name: "place", Kind: spec.String, Positional: true, Required: true, Enum: store.Places, Help: "start or end."}, sphereParam()},
+		Effects:  []string{"Rewrites the recurring item's place in meeting.md; instances already written keep theirs."},
+		Examples: []string{"oj standing place RDIR repas start --sphere pro"},
+		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+			return st.SetStandingPlace(ctx.Str("meeting"), ctx.Str("key"), ctx.Str("place"))
+		}),
+	})
+	spec.Register(&spec.Action{
 		Category: "standing", Name: "rm",
 		Summary:  "Stop a recurring item; the instances already written stay.",
 		Params:   []spec.Param{{Name: "meeting", Kind: spec.String, Positional: true, Required: true, Help: "Meeting alias."}, {Name: "key", Kind: spec.String, Positional: true, Required: true, Help: "Key of the recurring item."}, sphereParam()},

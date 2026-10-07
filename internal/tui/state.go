@@ -141,6 +141,8 @@ func (m *model) restore() tea.Cmd {
 		cmds = append(cmds, m.loadActions())
 	case vSittings:
 		cmds = append(cmds, m.loadOverview())
+	case vStanding:
+		m.view = vMeetings
 	case vAgenda, vLive:
 		if !needsAgenda {
 			m.view = vMeetings

@@ -106,6 +106,51 @@ func (s *Store) AddStanding(alias string, st Standing) (*Meeting, error) {
 	return m, err
 }
 
+// MakeStanding declares a recurring item from an item: its title, kind,
+// duration, question and notes. The item becomes the instance of its sitting.
+func (s *Store) MakeStanding(id, place, key string) (*Item, error) {
+	it, err := s.Item(id)
+	if err != nil {
+		return nil, err
+	}
+	if k := it.StandingKey(); k != "" {
+		return nil, spec.Conflict("item %s is already an instance of the recurring item %q", it.ID, k)
+	}
+	m, err := s.AddStanding(it.Meeting, Standing{Key: key, Title: it.Title, Kind: it.Kind, Duration: it.Duration,
+		Expected: it.Expected, Notes: it.Notes, Place: place})
+	if err != nil {
+		return nil, err
+	}
+	k := m.Standing[len(m.Standing)-1].Key
+	return s.EditItem(it.ID, ItemInput{Refs: []string{standingRef + k}})
+}
+
+// SetStandingPlace puts a recurring item at the start or the end of the agendas to come.
+func (s *Store) SetStandingPlace(alias, key, place string) (*Meeting, error) {
+	if !contains(Places, place) {
+		return nil, spec.UserError("place takes start or end, got %q", place)
+	}
+	var m *Meeting
+	a, err := NormAlias(alias)
+	if err != nil {
+		return nil, err
+	}
+	err = s.Write("standing place "+a+" "+key, func() error {
+		if m, err = s.Meeting(a); err != nil {
+			return err
+		}
+		for i := range m.Standing {
+			if m.Standing[i].Key == key {
+				m.Standing[i].Place = place
+				s.log(&m.Log, "recurring item "+key+" at the "+place)
+				return s.saveMeeting(m)
+			}
+		}
+		return spec.NotFound("meeting %s has no recurring item %q; see `oj standing ls %s`", a, key, a)
+	})
+	return m, err
+}
+
 // RemoveStanding stops a recurring item; instances already written stay.
 func (s *Store) RemoveStanding(alias, key string) (*Meeting, error) {
 	var m *Meeting

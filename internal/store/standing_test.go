@@ -17,6 +17,36 @@ func agendaTitles(a *Agenda) string {
 	return strings.Join(l, " | ")
 }
 
+func TestMakeStanding(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Fiori", Duration: "15m", Notes: "Launchpad"}, true, ""))
+	it := must[*Item](t)(s.MakeStanding("RDIR-1", "start", "fiori"))
+	if it.StandingKey() != "fiori" {
+		t.Fatalf("instance %+v", it.Refs)
+	}
+	m := must[*Meeting](t)(s.Meeting("RDIR"))
+	if len(m.Standing) != 1 || m.Standing[0].Duration != "15m" || m.Standing[0].Notes != "Launchpad" {
+		t.Fatalf("declared %+v", m.Standing)
+	}
+	// Its own sitting keeps the item, no second instance; the next one gets a virtual one.
+	if got := agendaTitles(must[*Agenda](t)(s.Agenda("RDIR"))); got != "Fiori" {
+		t.Fatalf("own sitting: %s", got)
+	}
+	if got := agendaTitles(must[*Agenda](t)(s.Agenda("RDIR-2026-10-15"))); got != "~Fiori" {
+		t.Fatalf("next sitting: %s", got)
+	}
+	if _, err := s.MakeStanding("RDIR-1", "end", ""); kind(err) != "conflict" {
+		t.Fatal("already recurring")
+	}
+	m = must[*Meeting](t)(s.SetStandingPlace("RDIR", "fiori", "end"))
+	if m.Standing[0].Place != "end" {
+		t.Fatal("place not changed")
+	}
+	if _, err := s.SetStandingPlace("RDIR", "nope", "end"); kind(err) != "not_found" {
+		t.Fatal("unknown key")
+	}
+}
+
 func TestStandingItems(t *testing.T) {
 	s := withRDIR(t)
 	must[*Meeting](t)(s.AddStanding("RDIR", Standing{Title: "Logistique du déplacement", Place: "start", Duration: "5m"}))

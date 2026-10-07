@@ -52,6 +52,7 @@ const (
 	vLive
 	vActions
 	vSittings
+	vStanding
 )
 
 type prompt int
@@ -65,6 +66,8 @@ const (
 	pAction
 	pMinute
 	pUnminute
+	pMakeStanding
+	pNewStanding
 )
 
 // row is a line of the agenda: an item on it, a proposal, a dropped item, or
@@ -161,6 +164,60 @@ type model struct {
 
 	// stamp is the stores' fingerprint at the last look; a change reloads the view.
 	stamp string
+
+	// standing lists the recurring items of the open meeting.
+	standing []store.Standing
+	selR     int
+}
+
+type standingMsg struct {
+	list []store.Standing
+	err  error
+}
+
+func (m *model) loadStanding() tea.Cmd {
+	st, alias := m.st, m.meeting
+	return func() tea.Msg {
+		mt, err := st.Meeting(alias)
+		if err != nil {
+			return standingMsg{err: err}
+		}
+		return standingMsg{list: mt.Standing}
+	}
+}
+
+// keyStanding: the recurring items of the open meeting.
+func (m *model) keyStanding(k tea.KeyPressMsg) tea.Cmd {
+	alias := m.meeting
+	var cur *store.Standing
+	if m.selR < len(m.standing) {
+		cur = &m.standing[m.selR]
+	}
+	switch k.String() {
+	case "esc":
+		m.view = vAgenda
+		return m.reload()
+	case "j", "down":
+		m.selR = min(len(m.standing)-1, m.selR+1)
+	case "k", "up":
+		m.selR = max(0, m.selR-1)
+	case "n":
+		return m.ask(pNewStanding, m.tr("nouveau point récurrent (à la fin)", "new recurring item (at the end)"), "", "")
+	case "s":
+		if cur != nil {
+			key, place := cur.Key, "start"
+			if cur.Place == "start" {
+				place = "end"
+			}
+			return m.do(key+" → "+place, func() error { _, err := m.st.SetStandingPlace(alias, key, place); return err })
+		}
+	case "x":
+		if cur != nil {
+			key := cur.Key
+			return m.do(key+m.tr(" arrêté", " stopped"), func() error { _, err := m.st.RemoveStanding(alias, key); return err })
+		}
+	}
+	return nil
 }
 
 // watchEvery is how often the TUI looks for changes made by other processes
@@ -448,6 +505,8 @@ func (m *model) reload() tea.Cmd {
 		return m.loadActions()
 	case vSittings:
 		return m.loadOverview()
+	case vStanding:
+		return m.loadStanding()
 	}
 	return nil
 }
@@ -648,7 +707,16 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.keyActions(msg)
 		case vSittings:
 			return m, m.keySittings(msg)
+		case vStanding:
+			return m, m.keyStanding(msg)
 		}
+	case standingMsg:
+		if msg.err != nil {
+			m.setStatus(msg.err.Error(), true)
+			break
+		}
+		m.standing = msg.list
+		m.selR = min(m.selR, max(0, len(m.standing)-1))
 	}
 	return m, nil
 }
@@ -804,6 +872,22 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			return nil
 		}
 		return m.do("minutes taken back", func() error { _, err := m.st.UnminuteSitting(target); return err })
+	case pMakeStanding:
+		place := map[string]string{"s": "start", "start": "start", "d": "start", "début": "start", "e": "end", "end": "end", "f": "end", "fin": "end", "": "end"}[strings.ToLower(v)]
+		if place == "" {
+			m.setStatus(m.tr("répondre début ou fin", "answer start or end"), true)
+			return nil
+		}
+		return m.do(target+m.tr(" devient récurrent", " made recurring"), func() error { _, err := m.st.MakeStanding(target, place, ""); return err })
+	case pNewStanding:
+		if v == "" {
+			return nil
+		}
+		alias := m.meeting
+		return m.do(m.tr("point récurrent ajouté", "recurring item added"), func() error {
+			_, err := m.st.AddStanding(alias, store.Standing{Title: v, Place: "end"})
+			return err
+		})
 	}
 	return nil
 }
@@ -905,6 +989,17 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "n":
 		return m.ask(pNewItem, "new item", "", "")
+	case "*":
+		if r != nil {
+			if k := r.item.StandingKey(); k != "" {
+				m.setStatus(m.tr("déjà récurrent ("+k+") : R pour la liste", "already recurring ("+k+"): R for the list"), true)
+				return nil
+			}
+			return m.ask(pMakeStanding, m.tr(r.item.ID+" récurrent, au début ou à la fin ?", r.item.ID+" recurring, at the start or the end?"), r.item.ID, m.tr("fin", "end"))
+		}
+	case "R":
+		m.view, m.selR = vStanding, 0
+		return m.loadStanding()
 	case "a":
 		if r != nil && r.proposed {
 			id := r.item.ID

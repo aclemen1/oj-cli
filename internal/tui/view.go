@@ -122,6 +122,8 @@ func (m *model) renderMain() ([]string, string) {
 			pairs = m.filterPairs(pairs...)
 		}
 		lines, help = m.renderOverview(), helpLine(pairs...)
+	case vStanding:
+		lines, help = m.renderStanding(), helpLine("n", "new", "s", "start/end", "x", "stop", "j/k", "move", "esc", "agenda")
 	case vItem:
 		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
 	case vLive:
@@ -275,6 +277,27 @@ func (m *model) renderAgenda() []string {
 		rows = append(rows, "")
 	}
 	return append(append(out, rows...), pane...)
+}
+
+// renderStanding lists the recurring items of the open meeting.
+func (m *model) renderStanding() []string {
+	out := []string{sBold.Render(m.tr("Points récurrents de ", "Recurring items of ") + m.meeting), ""}
+	if len(m.standing) == 0 {
+		return append(out, sMuted.Render(m.tr("  Aucun. n en ajoute un ; * dans l'ordre du jour rend un point récurrent.",
+			"  None. n adds one; * in the agenda makes an item recurring.")))
+	}
+	for i, s := range m.standing {
+		place := m.tr("fin", "end")
+		if s.Place == "start" {
+			place = m.tr("début", "start")
+		}
+		line := fmt.Sprintf("  ↻ %-16s %-6s %5s  %s", s.Key, place, s.Duration, s.Title)
+		if i == m.selR {
+			line = selectLine(line, m.w)
+		}
+		out = append(out, line)
+	}
+	return out
 }
 
 // idLabel is the item's id, or ↻ and its key for a recurring item not written yet.

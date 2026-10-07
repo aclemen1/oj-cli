@@ -59,6 +59,52 @@ func TestStandingInTUI(t *testing.T) {
 	}
 }
 
+func TestStandingFromTUI(t *testing.T) {
+	m, st, _ := setup(t)
+	press(t, m, "enter")
+	// * on Point RH: recurring, at the start.
+	m.sel = 1
+	press(t, m, "*")
+	m.input.SetValue("")
+	typeText(t, m, "start")
+	press(t, m, "enter")
+	mt, _ := st.Meeting("RDIR")
+	if len(mt.Standing) != 1 || mt.Standing[0].Place != "start" || mt.Standing[0].Title != "Point RH" {
+		t.Fatalf("standing %+v (%s)", mt.Standing, m.status)
+	}
+	if it, _ := st.Item("RDIR-2"); it.StandingKey() != mt.Standing[0].Key {
+		t.Fatalf("the item is the instance: %+v", it.Refs)
+	}
+	press(t, m, "]")
+	if !m.agenda.Items[0].Item.Virtual || m.agenda.Items[0].Item.Title != "Point RH" {
+		t.Fatalf("next sitting starts with the recurring item: %v", agendaIDs(m))
+	}
+	// R: the list; n adds, s moves, x stops.
+	press(t, m, "R")
+	if m.view != vStanding || !strings.Contains(screen(m), "↻ "+mt.Standing[0].Key) {
+		t.Fatalf("standing view:\n%s", screen(m))
+	}
+	press(t, m, "n")
+	typeText(t, m, "Repas")
+	press(t, m, "enter")
+	if len(m.standing) != 2 || m.standing[1].Key != "repas" || m.standing[1].Place != "end" {
+		t.Fatalf("added %+v", m.standing)
+	}
+	m.selR = 1
+	press(t, m, "s")
+	if m.standing[1].Place != "start" {
+		t.Fatalf("place %+v", m.standing[1])
+	}
+	press(t, m, "x")
+	if len(m.standing) != 1 {
+		t.Fatalf("stopped %+v", m.standing)
+	}
+	press(t, m, "esc")
+	if m.view != vAgenda {
+		t.Fatal("esc goes back to the agenda")
+	}
+}
+
 func agendaIDs(m *model) []string {
 	var l []string
 	for _, ai := range m.agenda.Items {
@@ -125,7 +171,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, overviewMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, overviewMsg, standingMsg:
 		return "oj"
 	}
 	return "tea.other"

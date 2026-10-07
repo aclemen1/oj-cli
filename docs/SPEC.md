@@ -163,6 +163,13 @@ duration, question, notes), with `oj standing add|ls|rm`.
 - At the minutes, an instance with no outcome `next=done` is dropped
   (`not reached`), not deferred: the next sitting has its own.
 - `oj standing rm` stops new instances; those already written stay.
+- `oj standing from <item> [--place]` makes an item recurring: the
+  declaration takes its title, kind, duration, question and notes, and the
+  item becomes the instance of its sitting. `oj standing place` changes
+  where a recurring item goes.
+- TUI: `↻ <key>` marks an instance not written yet; `*` makes the selected
+  item recurring; `R` lists the meeting's recurring items (`n` new, `s`
+  start or end, `x` stop).
 
 ### 3.5 Identifiers and links
 

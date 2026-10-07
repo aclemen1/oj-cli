@@ -97,6 +97,8 @@ func (m *model) helpPanel(w int) []string {
 		m.helpActions(b)
 	case vSittings:
 		m.helpSittings(b)
+	case vStanding:
+		m.helpStanding(b)
 	}
 	b.title(m.tr("AIDE", "HELP"))
 	b.key("?", m.tr("masquer ou afficher cette aide", "hide or show this help"))
@@ -155,8 +157,8 @@ func (m *model) sittingStateText(s *store.Sitting, a *store.Agenda) (what, next 
 		next = m.tr("Compléter les issues (l, puis s, D, t), puis approuver le PV (m). Les issues ✎ d'un agent sont des brouillons.",
 			"Complete the outcomes (l, then s, D, t), then approve the minutes (m). Outcomes ✎ by an agent are drafts.")
 	case "minuted":
-		what = m.tr("PV approuvé et rendu. Les points traités sont faits ; les autres sont reportés à la séance suivante.",
-			"Minutes approved and rendered. Items dealt with are done; the others moved to the next sitting.")
+		what = m.tr("PV approuvé et rendu. Les points traités sont faits ; les autres sont reportés à la séance suivante, sauf les points récurrents, retirés.",
+			"Minutes approved and rendered. Items dealt with are done; the others moved to the next sitting, except recurring items, dropped.")
 		next = m.tr("Suivre les actions (A). Pour revenir en arrière : U (annuler le PV).",
 			"Follow the actions (A). To go back: U (take back the minutes).")
 	case "cancelled":
@@ -221,8 +223,17 @@ func (m *model) helpAgenda(b *helpBuilder) {
 		b.key("U", u)
 	}
 	if r := m.current(); r != nil {
-		b.title(m.tr("POINT", "ITEM") + " · " + r.item.ID)
+		b.title(m.tr("POINT", "ITEM") + " · " + idLabel(r.item))
 		b.text(m.itemStateText(r))
+		if k := r.item.StandingKey(); k != "" {
+			if r.item.Virtual {
+				b.text(m.tr("Point récurrent ("+k+") pas encore écrit : il l'est au premier geste, au gel ou à la tenue.",
+					"Recurring item ("+k+") not written yet: it is at the first gesture, at freeze or hold."))
+			} else {
+				b.text(m.tr("Exemplaire du point récurrent "+k+" pour cette séance ; non traité, il est retiré au PV, pas reporté.",
+					"This sitting's instance of the recurring item "+k+"; not dealt with, it is dropped at the minutes, not deferred."))
+			}
+		}
 		if r.outcome != nil && r.outcome.Status == "draft" {
 			b.text(sWarn.Render(m.tr("Issue rédigée par un agent : brouillon jusqu'au PV.", "Outcome written by an agent: a draft until the minutes.")))
 		}
@@ -245,6 +256,9 @@ func (m *model) helpAgenda(b *helpBuilder) {
 			b.key("+/-", m.tr("5 minutes de plus / de moins", "5 minutes more / less"))
 		}
 		b.key("e", m.tr("éditer (question, notes…)", "edit (question, notes…)"))
+		if r.item.StandingKey() == "" && !r.proposed {
+			b.key("*", m.tr("le rendre récurrent (il reviendra à chaque séance)", "make it recurring (it comes back at every sitting)"))
+		}
 		if ref := m.jumpRef(r.item); ref != "" {
 			b.key("o", m.tr("aller à "+ref, "go to "+ref))
 		} else if len(m.st.CreateSchemes()) > 0 {
@@ -255,6 +269,7 @@ func (m *model) helpAgenda(b *helpBuilder) {
 	b.title(m.tr("NAVIGUER", "NAVIGATE"))
 	b.key("[ ]", m.tr("séance précédente / suivante", "previous / next sitting"))
 	b.key("S", m.tr("toutes les séances de cette série", "every sitting of this meeting"))
+	b.key("R", m.tr("les points récurrents de cette série", "the recurring items of this meeting"))
 	b.key("A", m.tr("actions décidées", "decided actions"))
 	b.key("esc", m.tr("retour aux séances", "back to meetings"))
 }
@@ -276,7 +291,11 @@ func (m *model) helpLive(b *helpBuilder) {
 	b.key("s", m.tr("résumé du point", "summary of the item"))
 	b.key("D", m.tr("décision", "decision"))
 	b.key("t", m.tr("action : quoi|qui|AAAA-MM-JJ", "action: what|who|YYYY-MM-DD"))
-	b.key("-", m.tr("non traité : reporté au PV", "not reached: deferred at the minutes"))
+	if it := m.liveItem(); it != nil && it.StandingKey() != "" {
+		b.key("-", m.tr("non traité : retiré au PV (point récurrent)", "not reached: dropped at the minutes (recurring item)"))
+	} else {
+		b.key("-", m.tr("non traité : reporté au PV", "not reached: deferred at the minutes"))
+	}
 	if it := m.liveItem(); it != nil {
 		if ref := m.jumpRef(it); ref != "" {
 			b.key("o", m.tr("aller à "+ref, "go to "+ref))
@@ -310,6 +329,19 @@ func (m *model) helpActions(b *helpBuilder) {
 	b.key("o", m.tr("montrer aussi les actions faites", "also show done actions"))
 	m.helpFilter(b)
 	b.key("esc", m.tr("retour", "back"))
+}
+
+func (m *model) helpStanding(b *helpBuilder) {
+	b.title(m.tr("OÙ VOUS EN ÊTES", "WHERE YOU ARE"))
+	b.text(m.tr("Les points récurrents de "+m.meeting+" : chaque séance a le sien, retenu d'office, au début ou à la fin de l'ordre du jour.",
+		"The recurring items of "+m.meeting+": every sitting has its own, accepted, at the start or the end of the agenda."))
+	b.text(m.tr("Dans l'ordre du jour, ↻ marque un exemplaire pas encore écrit : il l'est au premier geste, au gel ou à la tenue. Non traité, il est retiré au PV, pas reporté.",
+		"In the agenda, ↻ marks an instance not written yet: it is at the first gesture, at freeze or hold. Not dealt with, it is dropped at the minutes, not deferred."))
+	b.title(m.tr("OPTIONS", "OPTIONS"))
+	b.key("n", m.tr("nouveau point récurrent (à la fin)", "new recurring item (at the end)"))
+	b.key("s", m.tr("le mettre au début / à la fin", "put it at the start / the end"))
+	b.key("x", m.tr("l'arrêter (les exemplaires déjà écrits restent)", "stop it (instances already written stay)"))
+	b.key("esc", m.tr("retour à l'ordre du jour", "back to the agenda"))
 }
 
 func (m *model) helpSittings(b *helpBuilder) {
