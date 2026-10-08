@@ -17,6 +17,29 @@ func agendaTitles(a *Agenda) string {
 	return strings.Join(l, " | ")
 }
 
+func TestStandingOnHeldSitting(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget"}, true, ""))
+	must[*Sitting](t)(s.HoldSitting("RDIR", nil, nil))
+	must[*Meeting](t)(s.AddStanding("RDIR", Standing{Key: "suite", Title: "Date de la prochaine séance"}))
+	// Declared after the hold: shown on the held sitting, not in its draft minutes.
+	if got := agendaTitles(must[*Agenda](t)(s.Agenda("RDIR-2026-10-08"))); got != "Budget | ~Date de la prochaine séance" {
+		t.Fatalf("held agenda: %s", got)
+	}
+	made := must[[]*Item](t)(s.ApplyStanding("RDIR-2026-10-08", "suite"))
+	if len(made) != 1 || made[0].Sitting != "RDIR-2026-10-08" {
+		t.Fatalf("apply on held %+v", made)
+	}
+	must[*Item](t)(s.SetOutcome(made[0].ID, "", OutcomeInput{Summary: "Le 22"}))
+	mn := must[*Minuted](t)(s.MinuteSitting("RDIR-2026-10-08"))
+	if !strings.Contains(strings.Join(mn.Done, ","), made[0].ID) {
+		t.Fatalf("minuted %+v", mn)
+	}
+	if _, err := s.ApplyStanding("RDIR-2026-10-08", ""); kind(err) != "conflict" {
+		t.Fatal("apply on a minuted sitting is refused")
+	}
+}
+
 func TestMakeStanding(t *testing.T) {
 	s := withRDIR(t)
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Fiori", Duration: "15m", Notes: "Launchpad"}, true, ""))

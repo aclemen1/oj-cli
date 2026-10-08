@@ -124,6 +124,8 @@ func (m *model) renderMain() ([]string, string) {
 		lines, help = m.renderOverview(), helpLine(pairs...)
 	case vStanding:
 		lines, help = m.renderStanding(), helpLine("n", "new", "s", "start/end", "x", "stop", "j/k", "move", "esc", "agenda")
+	case vDoc:
+		lines, help = m.renderDoc(), helpLine("j/k", "scroll", "G", "ask outcomes", "esc", "agenda")
 	case vItem:
 		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
 	case vLive:
@@ -176,6 +178,9 @@ func (m *model) renderMeetings() []string {
 			if r.proposed > 0 {
 				next += "  " + sWarn.Render(fmt.Sprintf("%d proposed", r.proposed))
 			}
+		}
+		if r.pending != "" {
+			next = sWarn.Render(m.tr("PV à faire : ", "minutes to do: ")+r.pending) + "  " + next
 		}
 		line := fmt.Sprintf("  %s %-40s %s", pad(sBold.Render(m.tagged(r.sphere, r.alias)), 16), r.title, next)
 		if i == m.selM {
@@ -277,6 +282,30 @@ func (m *model) renderAgenda() []string {
 		rows = append(rows, "")
 	}
 	return append(append(out, rows...), pane...)
+}
+
+// renderDoc shows the agenda or the minutes of the open sitting as they would be produced.
+func (m *model) renderDoc() []string {
+	title := m.tr("Projet d'ordre du jour", "Draft agenda")
+	if m.doc.kind == "minutes" {
+		title = m.tr("Projet de PV", "Draft minutes")
+	}
+	if m.doc.final {
+		title = m.tr("Document produit", "Produced document")
+	}
+	id := ""
+	if m.agenda != nil {
+		id = m.agenda.Sitting.ID
+	}
+	out := []string{sBold.Render(title) + "  " + sMuted.Render(id), ""}
+	switch {
+	case m.doc.err != nil:
+		return append(out, sErr.Render("  "+m.doc.err.Error()))
+	case m.doc.text == "":
+		return append(out, sMuted.Render("  loading…"))
+	}
+	body := markdown(m.doc.text, max(20, m.w-4))
+	return append(out, body[min(m.scroll, max(0, len(body)-1)):]...)
 }
 
 // renderStanding lists the recurring items of the open meeting.

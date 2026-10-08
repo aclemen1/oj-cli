@@ -28,9 +28,11 @@ type Meeting struct {
 	Calendar     *CalLink `yaml:"calendar,omitempty" json:"calendar,omitempty"`
 	// Standing: recurring items, on the agenda of every sitting.
 	Standing []Standing `yaml:"standing,omitempty" json:"standing,omitempty"`
-	Counter  int        `yaml:"counter" json:"-"`
-	Log      []LogEntry `yaml:"log,omitempty" json:"log,omitempty"`
-	Notes    string     `yaml:"-" json:"notes,omitempty"`
+	// Extra keeps the fields this version does not know, so a rewrite keeps them.
+	Extra   map[string]any `yaml:",inline" json:"-"`
+	Counter int            `yaml:"counter" json:"-"`
+	Log     []LogEntry     `yaml:"log,omitempty" json:"log,omitempty"`
+	Notes   string         `yaml:"-" json:"notes,omitempty"`
 }
 
 var Kinds = []string{"info", "discussion", "decision"}

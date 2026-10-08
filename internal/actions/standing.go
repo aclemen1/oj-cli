@@ -89,7 +89,7 @@ func init() {
 	})
 	spec.Register(&spec.Action{
 		Category: "standing", Name: "apply",
-		Summary: "Write now the instances of a planned sitting's recurring items (all, or one), to act on them by id.",
+		Summary: "Write now the instances of a planned or held sitting's recurring items (all, or one), to act on them by id; a held sitting gets the ones it missed.",
 		Params: []spec.Param{sittingArg(sittingOrAlias), sphereParam(),
 			{Name: "key", Kind: spec.String, Help: "Only this recurring item."}},
 		Effects:  []string{"Writes the instances as accepted items and places them at the start or the end of the agenda."},
@@ -98,5 +98,21 @@ func init() {
 			return st.ApplyStanding(ctx.Str("sitting"), ctx.Str("key"))
 		}),
 		Text: textItems,
+	})
+}
+
+func init() {
+	spec.Register(&spec.Action{
+		Category: "sitting", Name: "ask",
+		Summary: "Send a named request about a sitting to the target of its meeting's ref, e.g. ask the meeting's agent to write the outcomes from a transcript.",
+		Discussion: "The request is a text template declared by the sphere (asks.<name>, with {sitting}, {meeting}, {meeting_title}, {date}, {time}, {items}); " +
+			"it goes through the ask command of the first meeting ref whose scheme has one (refs.<scheme>.ask, with {id} and {text}).",
+		Params: []spec.Param{sittingArg(sittingOrAlias), sphereParam(),
+			{Name: "request", Kind: spec.String, Default: "outcomes", Help: "Name of the request declared by the sphere."}},
+		Effects:  []string{"Runs the sphere's ask command; oj itself writes nothing."},
+		Examples: []string{"oj sitting ask RDIR-2026-10-08 --sphere pro", "oj sitting ask PSEC --request outcomes --sphere pro"},
+		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+			return st.Ask(ctx.Str("sitting"), ctx.Str("request"))
+		}),
 	})
 }

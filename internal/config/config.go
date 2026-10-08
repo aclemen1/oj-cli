@@ -22,6 +22,9 @@ type Sphere struct {
 	Hooks  []Hook       `yaml:"hooks,omitempty"`
 	// Refs: per ref scheme (office in office:U-0042), how to summarise its target.
 	Refs map[string]RefSource `yaml:"refs,omitempty"`
+	// Asks: named requests sent to a meeting's ref target by `sitting ask`,
+	// as text templates ({sitting}, {meeting}, {meeting_title}, {date}, {time}, {items}).
+	Asks map[string]string `yaml:"asks,omitempty"`
 }
 
 // RefSource runs Show, with {id} replaced by what follows the scheme, and
@@ -34,6 +37,8 @@ type RefSource struct {
 	Link   []string `yaml:"link,omitempty"`
 	// Open jumps to the target ({id}), e.g. focuses the dossier's session.
 	Open []string `yaml:"open,omitempty"`
+	// Ask sends a request ({text}) to the target ({id}), e.g. a prompt to a dossier's agent.
+	Ask []string `yaml:"ask,omitempty"`
 }
 
 // Hook runs a command on events of a sphere's meetings.

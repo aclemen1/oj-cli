@@ -59,6 +59,49 @@ func TestStandingInTUI(t *testing.T) {
 	}
 }
 
+func TestHeldSittingPreviewAndAsk(t *testing.T) {
+	m, st, _ := setup(t)
+	log := filepath.Join(t.TempDir(), "asked")
+	st.Refs = map[string]config.RefSource{"office": {Ask: []string{"sh", "-c", `printf '%s\n%s' "$0" "$1" > ` + log, "{id}", "{text}"}}}
+	st.Asks = map[string]string{"outcomes": "Issues de {sitting} ({meeting_title}) :\n{items}"}
+	st.EditMeeting("RDIR", store.MeetingInput{Refs: []string{"office:U-0006"}})
+	st.HoldSitting("RDIR-2026-10-08", nil, nil)
+	if _, err := st.AddStanding("RDIR", store.Standing{Key: "suite", Title: "Date de la prochaine séance"}); err != nil {
+		t.Fatal(err)
+	}
+	// The meetings list shows the sitting to finish, and enter opens it.
+	drive(t, m, m.loadMeetings())
+	if s := screen(m); !strings.Contains(s, "minutes to do: RDIR-2026-10-08") {
+		t.Fatalf("meetings:\n%s", s)
+	}
+	press(t, m, "enter")
+	if m.agenda.Sitting.ID != "RDIR-2026-10-08" {
+		t.Fatalf("enter opened %s", m.agenda.Sitting.ID)
+	}
+	// A recurring item declared after the hold shows, and can be noted.
+	last := m.agenda.Items[len(m.agenda.Items)-1].Item
+	if !last.Virtual || last.Standing != "suite" {
+		t.Fatalf("missed recurring item: %+v", last)
+	}
+	// G sends the sphere's request to the meeting's ref target.
+	press(t, m, "G")
+	b, _ := os.ReadFile(log)
+	got := string(b)
+	if !strings.HasPrefix(got, "U-0006\nIssues de RDIR-2026-10-08 (Séance de direction) :") || !strings.Contains(got, "- RDIR-1 · Budget 2027") {
+		t.Fatalf("ask received:\n%s (%s)", got, m.status)
+	}
+	// P shows the draft minutes.
+	st.SetOutcome("RDIR-1", "", store.OutcomeInput{Decision: "Budget approuvé"})
+	press(t, m, "P")
+	if s := screen(m); m.view != vDoc || !strings.Contains(s, "Draft minutes") || !strings.Contains(s, "Budget approuvé") {
+		t.Fatalf("preview:\n%s", s)
+	}
+	press(t, m, "esc")
+	if m.view != vAgenda {
+		t.Fatal("esc goes back to the agenda")
+	}
+}
+
 func TestStandingFromTUI(t *testing.T) {
 	m, st, _ := setup(t)
 	press(t, m, "enter")
@@ -171,7 +214,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, overviewMsg, standingMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, overviewMsg, standingMsg, docMsg:
 		return "oj"
 	}
 	return "tea.other"

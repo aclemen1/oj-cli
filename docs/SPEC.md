@@ -170,6 +170,14 @@ duration, question, notes), with `oj standing add|ls|rm`.
 - TUI: `↻ <key>` marks an instance not written yet; `*` makes the selected
   item recurring; `R` lists the meeting's recurring items (`n` new, `s`
   start or end, `x` stop).
+- A held sitting also shows the recurring items it misses (declared after
+  its hold), and `oj standing apply` writes them there; the draft minutes
+  leave out those never written.
+
+In the TUI, the meetings list flags a held sitting whose minutes are not
+approved ("minutes to do"), and `enter` opens it before the next one. `P`
+shows the sitting's document as it would be produced now: the agenda, or
+the minutes once held.
 
 ### 3.5 Identifiers and links
 
@@ -499,6 +507,29 @@ that scheme). `item add` with a ref that an open item of the meeting already
 carries returns that item: a tool that registers the new target as an item
 finds the existing one. Finally `open` (with `{id}`) jumps to the target,
 e.g. `office attach {id}` focuses the dossier's session.
+
+A scheme's `ask` command (with `{id}` and `{text}`) sends a request to the
+target, and the sphere's `asks` names request texts, with `{sitting}`,
+`{meeting}`, `{meeting_title}`, `{date}`, `{time}`, `{sphere}` and `{items}`
+(the agenda, recurring items not written yet included). `oj sitting ask
+<sitting> [--request outcomes]`, or `G` in the TUI, sends the request
+`outcomes` to the first meeting ref whose scheme has an `ask` command: for
+instance, asking the meeting's agent to write the outcomes from a meeting
+transcript. oj writes nothing itself; outcomes written by an agent are drafts.
+
+```yaml
+    refs:
+      office:
+        ask: ["office", "prompt", "{id}", "--text", "{text}"]
+    asks:
+      outcomes: |
+        Write the outcomes of {sitting} from its transcript, as drafts.
+        {items}
+```
+
+Every file keeps the fields this version does not know (`Extra`, inline):
+an older binary that rewrites a meeting, a sitting or an item no longer
+drops what a newer one wrote.
 
 A meeting's own settings live in its `meeting.md`.
 

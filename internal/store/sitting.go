@@ -29,6 +29,8 @@ type Sitting struct {
 	Notes    string     `yaml:"-" json:"notes,omitempty"`
 	// Virtual: a date of the recurrence with nothing written yet.
 	Virtual bool `yaml:"-" json:"virtual,omitempty"`
+	// Extra keeps the fields this version does not know, so a rewrite keeps them.
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 var SittingStates = []string{"planned", "frozen", "held", "minuted", "cancelled"}

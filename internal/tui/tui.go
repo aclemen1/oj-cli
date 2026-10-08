@@ -53,6 +53,7 @@ const (
 	vActions
 	vSittings
 	vStanding
+	vDoc
 )
 
 type prompt int
@@ -94,6 +95,8 @@ type meetingRow struct {
 	sphere                       string
 	alias, title, next, nextDate string
 	accepted, proposed           int
+	// pending is a held sitting whose minutes are not approved yet: enter opens it first.
+	pending string
 }
 
 type live struct {
@@ -168,6 +171,52 @@ type model struct {
 	// standing lists the recurring items of the open meeting.
 	standing []store.Standing
 	selR     int
+
+	// doc is the preview of the open sitting's agenda or minutes.
+	doc docMsg
+}
+
+type docMsg struct {
+	kind, text string
+	final      bool
+	err        error
+}
+
+// docKind is the document a sitting is at: its minutes once held, else its agenda.
+func docKind(s *store.Sitting) string {
+	if s.State == "held" || s.State == "minuted" {
+		return "minutes"
+	}
+	return "agenda"
+}
+
+func (m *model) loadDoc() tea.Cmd {
+	if m.agenda == nil {
+		return nil
+	}
+	st, id, kind := m.st, m.agenda.Sitting.ID, docKind(m.agenda.Sitting)
+	return func() tea.Msg {
+		r, err := st.RenderDoc(id, kind, "md", "")
+		if err != nil {
+			return docMsg{kind: kind, err: err}
+		}
+		b, err := os.ReadFile(r.Markdown)
+		return docMsg{kind: kind, text: string(b), final: r.Final, err: err}
+	}
+}
+
+// ask sends the sphere's request to the meeting's agent, e.g. outcomes from a transcript.
+func (m *model) askAgent(request string) tea.Cmd {
+	if m.agenda == nil {
+		return nil
+	}
+	if !m.st.CanAsk(m.agenda.Sitting.Meeting, request) {
+		m.setStatus(m.tr("rien à demander : la sphère ne déclare pas asks."+request+", ou la séance n'a pas de ref avec une commande ask",
+			"nothing to ask: the sphere declares no asks."+request+", or the meeting has no ref with an ask command"), true)
+		return nil
+	}
+	id := m.agenda.Sitting.ID
+	return m.do(m.tr("demande envoyée : ", "request sent: ")+request, func() error { _, err := m.st.Ask(id, request); return err })
 }
 
 type standingMsg struct {
@@ -400,6 +449,7 @@ func (m *model) fetchRefs() tea.Cmd {
 
 func (m *model) loadMeetings() tea.Cmd {
 	stores := m.shown()
+	since := m.now().AddDate(0, -3, 0).Format("2006-01-02")
 	return func() tea.Msg {
 		var rows []meetingRow
 		for _, st := range stores {
@@ -411,6 +461,9 @@ func (m *model) loadMeetings() tea.Cmd {
 				r := meetingRow{sphere: st.Sphere, alias: mt.Alias, title: mt.Title}
 				if a, err := st.Agenda(mt.Alias); err == nil {
 					r.next, r.nextDate, r.accepted, r.proposed = a.Sitting.ID, a.Sitting.Date, len(a.Items), len(a.Proposed)
+				}
+				if held, err := st.Sittings(mt, since, 0, "held"); err == nil && len(held) > 0 {
+					r.pending = held[len(held)-1].ID
 				}
 				rows = append(rows, r)
 			}
@@ -507,6 +560,8 @@ func (m *model) reload() tea.Cmd {
 		return m.loadOverview()
 	case vStanding:
 		return m.loadStanding()
+	case vDoc:
+		return m.loadDoc()
 	}
 	return nil
 }
@@ -709,7 +764,21 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.keySittings(msg)
 		case vStanding:
 			return m, m.keyStanding(msg)
+		case vDoc:
+			switch msg.String() {
+			case "esc":
+				m.view = vAgenda
+				return m, m.reload()
+			case "j", "down":
+				m.scroll++
+			case "k", "up":
+				m.scroll = max(0, m.scroll-1)
+			case "G":
+				return m, m.askAgent("outcomes")
+			}
 		}
+	case docMsg:
+		m.doc = msg
 	case standingMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
@@ -928,8 +997,12 @@ func (m *model) keyMeetings(k tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		if m.selM < len(m.meetings) {
 			m.agenda = nil
-			m.enter(m.meetings[m.selM].sphere)
-			return m.loadAgenda(m.meetings[m.selM].alias)
+			r := m.meetings[m.selM]
+			m.enter(r.sphere)
+			if r.pending != "" {
+				return m.loadAgenda(r.pending)
+			}
+			return m.loadAgenda(r.alias)
 		}
 	case "s":
 		if m.multi() {
@@ -1000,6 +1073,11 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	case "R":
 		m.view, m.selR = vStanding, 0
 		return m.loadStanding()
+	case "P":
+		m.view, m.scroll, m.doc = vDoc, 0, docMsg{}
+		return m.loadDoc()
+	case "G":
+		return m.askAgent("outcomes")
 	case "a":
 		if r != nil && r.proposed {
 			id := r.item.ID

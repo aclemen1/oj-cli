@@ -36,6 +36,8 @@ type Item struct {
 	// Virtual: a recurring item of a sitting, shown but not written yet; Standing is its key.
 	Virtual  bool   `yaml:"-" json:"virtual,omitempty"`
 	Standing string `yaml:"-" json:"standing,omitempty"`
+	// Extra keeps the fields this version does not know, so a rewrite keeps them.
+	Extra map[string]any `yaml:",inline" json:"-"`
 }
 
 // Entry is what happened to an item in one sitting.

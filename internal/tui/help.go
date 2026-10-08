@@ -99,6 +99,8 @@ func (m *model) helpPanel(w int) []string {
 		m.helpSittings(b)
 	case vStanding:
 		m.helpStanding(b)
+	case vDoc:
+		m.helpDoc(b)
 	}
 	b.title(m.tr("AIDE", "HELP"))
 	b.key("?", m.tr("masquer ou afficher cette aide", "hide or show this help"))
@@ -154,8 +156,8 @@ func (m *model) sittingStateText(s *store.Sitting, a *store.Agenda) (what, next 
 			"On the day: l (live) to note outcomes, then h (held). To correct it: r (reopen).")
 	case "held":
 		what = m.tr("La séance a eu lieu. On finit de saisir les issues.", "The sitting took place. Finish the outcomes.")
-		next = m.tr("Compléter les issues (l, puis s, D, t), puis approuver le PV (m). Les issues ✎ d'un agent sont des brouillons.",
-			"Complete the outcomes (l, then s, D, t), then approve the minutes (m). Outcomes ✎ by an agent are drafts.")
+		next = m.tr("Compléter les issues (l, puis s, D, t, ou G pour les demander à l'agent de la séance), relire le projet de PV (P), puis l'approuver (m). Les issues ✎ d'un agent sont des brouillons.",
+			"Complete the outcomes (l, then s, D, t, or G to ask the meeting's agent), review the draft minutes (P), then approve them (m). Outcomes ✎ by an agent are drafts.")
 	case "minuted":
 		what = m.tr("PV approuvé et rendu. Les points traités sont faits ; les autres sont reportés à la séance suivante, sauf les points récurrents, retirés.",
 			"Minutes approved and rendered. Items dealt with are done; the others moved to the next sitting, except recurring items, dropped.")
@@ -217,7 +219,13 @@ func (m *model) helpAgenda(b *helpBuilder) {
 		b.key("r", m.tr("rouvrir l'ordre du jour", "reopen the agenda"))
 	case "held":
 		b.key("l", m.tr("saisir les issues en direct", "record outcomes live"))
+		m.helpAsk(b)
 		b.key("m", m.tr("approuver le PV (taper yes)", "approve the minutes (type yes)"))
+	}
+	if docKind(s) == "minutes" {
+		b.key("P", m.tr("voir le PV tel qu'il sera produit", "see the minutes as they will be produced"))
+	} else {
+		b.key("P", m.tr("voir l'ordre du jour tel qu'il sera produit", "see the agenda as it will be produced"))
 	}
 	if u := undoSittingLabel(m.agenda); u != "" {
 		b.key("U", u)
@@ -329,6 +337,24 @@ func (m *model) helpActions(b *helpBuilder) {
 	b.key("o", m.tr("montrer aussi les actions faites", "also show done actions"))
 	m.helpFilter(b)
 	b.key("esc", m.tr("retour", "back"))
+}
+
+func (m *model) helpDoc(b *helpBuilder) {
+	b.title(m.tr("OÙ VOUS EN ÊTES", "WHERE YOU ARE"))
+	b.text(m.tr("Le document tel qu'il serait produit maintenant : l'ordre du jour avant la séance, le PV une fois la séance tenue. Il se met à jour quand les points ou les issues changent.",
+		"The document as it would be produced now: the agenda before the sitting, the minutes once it is held. It follows changes to items and outcomes."))
+	b.title(m.tr("OPTIONS", "OPTIONS"))
+	b.key("j k", m.tr("défiler", "scroll"))
+	m.helpAsk(b)
+	b.key("esc", m.tr("retour à l'ordre du jour", "back to the agenda"))
+}
+
+// helpAsk shows G when the sphere declares the request and the meeting can receive it.
+func (m *model) helpAsk(b *helpBuilder) {
+	if m.agenda != nil && m.st.CanAsk(m.agenda.Sitting.Meeting, "outcomes") {
+		b.key("G", m.tr("demander à l'agent de la séance d'écrire les issues (brouillons ✎ à relire avant m)",
+			"ask the meeting's agent to write the outcomes (drafts ✎ to review before m)"))
+	}
 }
 
 func (m *model) helpStanding(b *helpBuilder) {

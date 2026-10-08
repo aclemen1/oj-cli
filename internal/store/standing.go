@@ -184,7 +184,8 @@ func (s *Store) RemoveStanding(alias, key string) (*Meeting, error) {
 // virtualStanding returns the recurring items of a planned sitting that have
 // no instance yet, as virtual items, split by place.
 func (s *Store) virtualStanding(sit *Sitting, m *Meeting, all []*Item) (start, end []*Item) {
-	if sit.State != "planned" || len(m.Standing) == 0 {
+	// A held sitting shows the ones it missed (declared later), to note them before the minutes.
+	if (sit.State != "planned" && sit.State != "held") || len(m.Standing) == 0 {
 		return nil, nil
 	}
 	have := map[string]bool{}
@@ -300,8 +301,8 @@ func (s *Store) ApplyStanding(sittingID, key string) ([]*Item, error) {
 				return "", spec.NotFound("meeting %s has no recurring item %q; see `oj standing ls %s`", m.Alias, key, m.Alias)
 			}
 		}
-		if sit.State != "planned" {
-			return "", requireState(sit, "apply recurring items to", "planned")
+		if sit.State != "planned" && sit.State != "held" {
+			return "", requireState(sit, "apply recurring items to", "planned", "held")
 		}
 		var keys []string
 		if key != "" {
