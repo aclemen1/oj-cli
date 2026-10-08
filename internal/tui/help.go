@@ -298,7 +298,7 @@ func (m *model) helpLive(b *helpBuilder) {
 	b.key("n p", m.tr("point suivant / précédent", "next / previous item"))
 	b.key("s", m.tr("résumé du point", "summary of the item"))
 	b.key("D", m.tr("décision", "decision"))
-	b.key("t", m.tr("action : quoi|qui|AAAA-MM-JJ", "action: what|who|YYYY-MM-DD"))
+	b.key("t", m.tr("action : quoi|qui|AAAA-MM-JJ|fait (fait : déjà faite)", "action: what|who|YYYY-MM-DD|done (done: already done)"))
 	if it := m.liveItem(); it != nil && it.StandingKey() != "" {
 		b.key("-", m.tr("non traité : retiré au PV (point récurrent)", "not reached: dropped at the minutes (recurring item)"))
 	} else {

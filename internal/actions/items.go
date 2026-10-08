@@ -193,7 +193,7 @@ func registerItems() {
 			itemArg(), sphereParam(),
 			{Name: "summary", Kind: spec.String, Help: "Short text for the minutes."},
 			{Name: "decision", Kind: spec.String, Help: "The decision taken."},
-			{Name: "action", Kind: spec.StringList, Help: "Action \"what|who|due\" (repeatable), due as YYYY-MM-DD."},
+			{Name: "action", Kind: spec.StringList, Help: "Action \"what|who|due|done\" (repeatable): due as YYYY-MM-DD, done (or fait) for an action already done."},
 			{Name: "next", Kind: spec.String, Default: "done", Enum: []string{"done", "deferred"}, Help: "What becomes of the item when the minutes are approved."},
 			{Name: "by", Kind: spec.String, Help: "Who writes it: a name, or agent:<name> for a draft. Defaults to $OJ_BY, then user."},
 			{Name: "sitting", Kind: spec.String, Help: "Sitting of the outcome. Defaults to the item's."},

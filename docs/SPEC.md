@@ -258,7 +258,7 @@ sitting that did not happen.
 | `outcome set <id> [--sitting] [--summary] [--decision] [--action "what\|who\|due"]… [--next done\|deferred] [--by]` | records what came out of an item; `--by agent:<name>` writes a draft |
 | `render <sitting> --doc agenda\|minutes [--to md\|html\|docx\|pdf] [--out]` | renders a document (§8) |
 | `actions ls [<alias>] [--who] [--state open\|done\|all] [--due-before]` | actions across sittings of a meeting or the sphere, open first by due date |
-| `actions done <item> <n> [--sitting] [--undo]` | marks action n of an outcome done, or open again; rewriting the outcome keeps it |
+| `actions done <item> <n> [--sitting] [--undo]` | marks action n of an outcome done, or open again; rewriting the outcome keeps it. An action can also be written done: fourth field of `what\|who\|due\|done` (`done`, `fait`, `x`, `yes`, `oui`, `✓`) |
 
 Every action takes `--sphere` and returns the envelope. A read covers every
 sphere unless `--sphere` narrows it; a write needs a sphere (§9).

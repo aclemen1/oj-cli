@@ -274,6 +274,28 @@ func TestHandEditedFileIsRead(t *testing.T) {
 	}
 }
 
+func TestActionDoneWhenWritten(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget"}, true, ""))
+	it := must[*Item](t)(s.SetOutcome("RDIR-1", "", OutcomeInput{Summary: "ok",
+		Actions: []string{"Réserver la salle|Paul||fait", "Envoyer le PV|Marie|2026-10-20"}}))
+	a := it.History[0].Outcome.Actions
+	if !a[0].Done || a[1].Done || a[0].Due != "" {
+		t.Fatalf("actions %+v", a)
+	}
+	if open := must[[]ActionRow](t)(s.Actions(ActionFilter{})); len(open) != 1 || open[0].What != "Envoyer le PV" {
+		t.Fatalf("open actions %+v", open)
+	}
+	// Rewriting without the mark keeps it done.
+	it = must[*Item](t)(s.SetOutcome("RDIR-1", "", OutcomeInput{Summary: "ok", Actions: []string{"Réserver la salle|Paul|", "Envoyer le PV|Marie|2026-10-20|done"}}))
+	if a = it.History[0].Outcome.Actions; !a[0].Done || !a[1].Done {
+		t.Fatalf("after rewrite %+v", a)
+	}
+	if _, err := ParseAction("x|y|2026-10-20|peut-être"); kind(err) != "user_error" {
+		t.Fatal("an unknown mark is refused")
+	}
+}
+
 func TestActions(t *testing.T) {
 	s := withRDIR(t)
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget"}, true, ""))

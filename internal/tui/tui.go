@@ -975,7 +975,11 @@ func (m *model) outcome(id string, edit func(*store.OutcomeInput)) tea.Cmd {
 				o := e.Outcome
 				in.Summary, in.Decision, in.Next = o.Summary, o.Decision, o.Next
 				for _, a := range o.Actions {
-					in.Actions = append(in.Actions, a.What+"|"+a.Who+"|"+a.Due)
+					s := a.What + "|" + a.Who + "|" + a.Due
+					if a.Done {
+						s += "|done"
+					}
+					in.Actions = append(in.Actions, s)
 				}
 			}
 		}
@@ -1439,7 +1443,7 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "t":
 		if it != nil {
-			return m.ask(pAction, "action what|who|YYYY-MM-DD", it.ID, "")
+			return m.ask(pAction, "action what|who|YYYY-MM-DD|done", it.ID, "")
 		}
 	case "o":
 		if it != nil {

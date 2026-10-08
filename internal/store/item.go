@@ -579,11 +579,21 @@ type OutcomeInput struct {
 	Actions                     []string
 }
 
-// ParseAction reads "what|who|due".
+// doneWords mark an action already done in its fourth field.
+var doneWords = []string{"done", "fait", "faite", "x", "yes", "oui", "✓"}
+
+// ParseAction reads "what|who|due|done": who, due and done are optional;
+// done is one of done, fait, faite, x, yes, oui or ✓.
 func ParseAction(v string) (ActionItem, error) {
 	parts := strings.Split(v, "|")
-	if len(parts) > 3 || strings.TrimSpace(parts[0]) == "" {
-		return ActionItem{}, spec.UserError("action %q: expected \"what|who|due\", e.g. \"Draft the budget|Marie|2026-10-20\"", v)
+	if len(parts) > 4 || strings.TrimSpace(parts[0]) == "" {
+		return ActionItem{}, spec.UserError("action %q: expected \"what|who|due|done\", e.g. \"Draft the budget|Marie|2026-10-20\" or \"Book the room|Paul||done\"", v)
+	}
+	if len(parts) == 4 {
+		mark := strings.ToLower(strings.TrimSpace(parts[3]))
+		if mark != "" && !contains(doneWords, mark) {
+			return ActionItem{}, spec.UserError("action %q: the fourth field marks it done (done, fait, x…), got %q", v, parts[3])
+		}
 	}
 	a := ActionItem{What: strings.TrimSpace(parts[0])}
 	if len(parts) > 1 {
@@ -596,6 +606,7 @@ func ParseAction(v string) (ActionItem, error) {
 		}
 		a.Due = d
 	}
+	a.Done = len(parts) == 4 && strings.TrimSpace(parts[3]) != ""
 	return a, nil
 }
 
@@ -652,7 +663,7 @@ func (s *Store) SetOutcome(id, sitting string, in OutcomeInput) (*Item, error) {
 					known[a.What] = true
 				}
 				for i := range o.Actions {
-					o.Actions[i].Done = done[o.Actions[i].What]
+					o.Actions[i].Done = o.Actions[i].Done || done[o.Actions[i].What]
 				}
 			}
 			e.Outcome = o

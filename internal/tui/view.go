@@ -106,16 +106,7 @@ func (m *model) renderMain() ([]string, string) {
 	case vMeetings:
 		lines, help = m.renderMeetings(), helpLine(m.filterPairs("enter", "agenda", "S", "all sittings", "A", "actions", "R", "refresh", "q", "quit")...)
 	case vAgenda:
-		pairs := []string{"n", "new", "a", "accept", "d", "defer", "x", "drop"}
-		if u := m.undoLabel(); u != "" {
-			pairs = append(pairs, "u", u)
-		}
-		if u := undoSittingLabel(m.agenda); u != "" {
-			pairs = append(pairs, "U", u)
-		}
-		pairs = append(pairs, "M", "move to", "J/K", "order", "+/-", "5 min", "e", "edit", "f", "freeze", "r", "reopen", "l", "live", "h", "hold",
-			"m", "minutes", "o", "open ref", "c", "create ref", "S", "sittings", "[/]", "sitting", "esc", "back")
-		lines, help = m.renderAgenda(), helpLine(pairs...)
+		lines, help = m.renderAgenda(), helpLine(m.agendaPairs()...)
 	case vSittings:
 		pairs := []string{"enter", "open", "j/k", "move", "esc", "back"}
 		if m.ovScope == "" {
@@ -282,6 +273,41 @@ func (m *model) renderAgenda() []string {
 		rows = append(rows, "")
 	}
 	return append(append(out, rows...), pane...)
+}
+
+// agendaPairs are the footer keys of the agenda: the sitting's next steps
+// first, so they fit on screen, then the item's gestures and the navigation.
+func (m *model) agendaPairs() []string {
+	var p []string
+	if m.agenda != nil {
+		switch m.agenda.Sitting.State {
+		case "planned":
+			p = append(p, "n", "new", "f", "freeze", "l", "live", "P", "preview")
+		case "frozen":
+			p = append(p, "l", "live", "h", "hold", "P", "preview", "r", "reopen")
+		case "held":
+			p = append(p, "l", "live")
+			if m.st.CanAsk(m.agenda.Sitting.Meeting, "outcomes") {
+				p = append(p, "G", "ask outcomes")
+			}
+			p = append(p, "P", "minutes preview", "m", "approve minutes")
+		case "minuted":
+			p = append(p, "P", "minutes")
+		}
+	}
+	if r := m.current(); r != nil && r.proposed {
+		p = append(p, "a", "accept")
+	}
+	p = append(p, "d", "defer", "x", "drop")
+	if u := m.undoLabel(); u != "" {
+		p = append(p, "u", u)
+	}
+	if u := undoSittingLabel(m.agenda); u != "" {
+		p = append(p, "U", u)
+	}
+	p = append(p, "*", "recurring", "R", "recurring list", "e", "edit", "M", "move to", "J/K", "order", "+/-", "5 min",
+		"o", "open ref", "c", "create ref", "A", "actions", "S", "sittings", "[/]", "sitting", "esc", "back")
+	return p
 }
 
 // renderDoc shows the agenda or the minutes of the open sitting as they would be produced.
