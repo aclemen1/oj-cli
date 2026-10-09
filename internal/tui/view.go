@@ -443,6 +443,10 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 			lines = append(lines, markdown(e.shown.Text, w)...)
 		}
 	}
+	lines = append(lines, m.citedLines(it, w, func(t string) string {
+		h := fmt.Sprintf("·· %s ", t)
+		return sMuted.Render(h + strings.Repeat("·", max(0, w-ansi.StringWidth(h))))
+	})...)
 	if m.paneScroll > 0 {
 		m.paneScroll = min(m.paneScroll, max(0, len(lines)-maxLines))
 		lines = append(lines[:1], lines[1+m.paneScroll:]...)
@@ -523,6 +527,9 @@ func (m *model) renderItem() []string {
 		default:
 			lines = append(lines, markdown(e.shown.Text, max(20, m.w-2))...)
 		}
+	}
+	for _, l := range m.citedLines(it, max(20, m.w-2), func(t string) string { return "\n" + sSection.Render(t) }) {
+		lines = append(lines, strings.Split(l, "\n")...)
 	}
 	lines = append(lines, "", sSection.Render("Log"))
 	for _, l := range it.Log {
@@ -767,4 +774,23 @@ func (m *model) dayTime(d, at string) string {
 		wd = weekdaysFR[t.Weekday()]
 	}
 	return wd + " " + d + " " + at + sMuted.Render(" · "+m.relative(t))
+}
+
+// citedLines are the sections of the cited block for an item: what other
+// tools hold about it. An empty section is left out; head draws a title.
+func (m *model) citedLines(it *store.Item, w int, head func(string) string) []string {
+	if it == nil || it.Virtual {
+		return nil
+	}
+	var lines []string
+	for _, s := range m.cited[it.ID].sections {
+		switch {
+		case s.Error != "":
+			lines = append(lines, head(s.Title), sMuted.Render("  "+s.Error))
+		case s.Text != "":
+			lines = append(lines, head(s.Title))
+			lines = append(lines, markdown(s.Text, w)...)
+		}
+	}
+	return lines
 }

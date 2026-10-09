@@ -111,21 +111,30 @@ func registerItems() {
 		Category: "item", Name: "show", Read: true,
 		Summary: "Show an item: fields, history across sittings with outcomes, log.",
 		Discussion: "With --with-refs, each ref whose scheme the sphere's configuration knows (refs: under the sphere) " +
-			"comes with what its command says about the target, e.g. the dossier behind office:U-0042.",
-		Params:   []spec.Param{itemArg(), sphereParam(), {Name: "with-refs", Kind: spec.Bool, Help: "Add a summary of each ref's target."}},
-		Examples: []string{"oj item show RDIR-17", "oj item show pro:RDIR-17 --with-refs"},
+			"comes with what its command says about the target, e.g. the dossier behind office:U-0042. " +
+			"With --cited, each command of the sphere's cited block says what it holds about the item (oj:<id>): notes, tasks, dates.",
+		Params: []spec.Param{itemArg(), sphereParam(), {Name: "with-refs", Kind: spec.Bool, Help: "Add a summary of each ref's target."},
+			{Name: "cited", Kind: spec.Bool, Help: "Add what other tools hold about the item (cited: in the sphere's configuration)."}},
+		Examples: []string{"oj item show RDIR-17", "oj item show pro:RDIR-17 --with-refs", "oj item show RDIR-17 --cited"},
 		Run: withRead(func(ctx *spec.Context, stores []*store.Store) (any, error) {
 			it, st, err := pick(stores, ctx.Str("id"), func(st *store.Store) (*store.Item, error) { return st.Item(ctx.Str("id")) })
-			if err != nil || !ctx.Bool("with-refs") {
+			if err != nil || (!ctx.Bool("with-refs") && !ctx.Bool("cited")) {
 				return it, err
 			}
-			shown := []store.RefShown{}
-			for _, r := range it.Refs {
-				if st.CanShowRef(r) {
-					shown = append(shown, st.ShowRef(r))
+			out := map[string]any{"item": it}
+			if ctx.Bool("with-refs") {
+				shown := []store.RefShown{}
+				for _, r := range it.Refs {
+					if st.CanShowRef(r) {
+						shown = append(shown, st.ShowRef(r))
+					}
 				}
+				out["refs"] = shown
 			}
-			return map[string]any{"item": it, "refs": shown}, nil
+			if ctx.Bool("cited") {
+				out["cited"] = st.CitedOf("oj:" + it.ID)
+			}
+			return out, nil
 		}),
 	})
 	spec.Register(&spec.Action{

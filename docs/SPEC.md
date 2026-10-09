@@ -562,6 +562,22 @@ transcript. oj writes nothing itself; outcomes written by an agent are drafts.
         {items}
 ```
 
+`refs` show what an item cites; `cited` shows what cites the item. Each
+entry of the sphere's `cited` block is a titled command run with `{ref}`
+(`oj:RDIR-17`) and `{sphere}`, and `OJ_SPHERE` in its environment; it prints
+Markdown about the object, or nothing. The TUI shows each non-empty section
+in the item pane and the item view, loaded in the background and refreshed
+after a minute; a failing command shows its error in one muted line.
+`oj item show --cited` returns the sections to agents. oj names no other
+tool: notes, tasks or dates come from whatever commands the configuration
+lists.
+
+```yaml
+    cited:
+      - title: Tasks
+        run: ["task", "ls", "--ref", "{ref}", "--format", "text"]
+```
+
 Every file keeps the fields this version does not know (`Extra`, inline):
 an older binary that rewrites a meeting, a sitting or an item no longer
 drops what a newer one wrote.

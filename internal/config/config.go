@@ -25,6 +25,9 @@ type Sphere struct {
 	// Asks: named requests sent to a meeting's ref target by `sitting ask`,
 	// as text templates ({sitting}, {meeting}, {meeting_title}, {date}, {time}, {items}).
 	Asks map[string]string `yaml:"asks,omitempty"`
+	// Cited: what other tools hold about an object of oj, each a command run
+	// with {ref} (oj:RDIR-17), shown as a titled section of the item.
+	Cited []Cited `yaml:"cited,omitempty"`
 }
 
 // RefSource runs Show, with {id} replaced by what follows the scheme, and
@@ -39,6 +42,12 @@ type RefSource struct {
 	Open []string `yaml:"open,omitempty"`
 	// Ask sends a request ({text}) to the target ({id}), e.g. a prompt to a dossier's agent.
 	Ask []string `yaml:"ask,omitempty"`
+}
+
+// Cited is one section of an item's aggregated view.
+type Cited struct {
+	Title string   `yaml:"title"`
+	Run   []string `yaml:"run"`
 }
 
 // Hook runs a command on events of a sphere's meetings.

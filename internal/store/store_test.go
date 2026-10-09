@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/aclemen1/oj-cli/internal/config"
 	"github.com/aclemen1/oj-cli/internal/spec"
 )
 
@@ -406,5 +407,22 @@ func TestJJCommitPerAction(t *testing.T) {
 	}
 	if !strings.Contains(out, "item add RDIR-1") || !strings.Contains(out, "meeting add RDIR") {
 		t.Fatalf("jj log:\n%s", out)
+	}
+}
+
+func TestCited(t *testing.T) {
+	s := withRDIR(t)
+	if s.CanCite() {
+		t.Fatal("no cited block: nothing to cite")
+	}
+	s.Cited = []config.Cited{
+		{Title: "Tâches", Run: []string{"sh", "-c", "echo \"- tâche de $0 ($OJ_SPHERE)\"", "{ref}"}},
+		{Title: "Vide", Run: []string{"true"}},
+		{Title: "Cassé", Run: []string{"sh", "-c", "echo pas livré >&2; exit 3"}},
+	}
+	got := s.CitedOf("oj:RDIR-1")
+	if len(got) != 3 || got[0].Text != "- tâche de oj:RDIR-1 (pro)" || got[1].Text != "" || got[1].Error != "" ||
+		!strings.Contains(got[2].Error, "pas livré") {
+		t.Fatalf("cited %+v", got)
 	}
 }

@@ -1,13 +1,8 @@
 package store
 
 import (
-	"bytes"
-	"context"
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
-	"time"
 )
 
 // RefShown is what a ref's command says about its target.
@@ -37,26 +32,7 @@ func (s *Store) ShowRef(ref string) RefShown {
 	for i, a := range src.Show {
 		args[i] = strings.ReplaceAll(a, "{id}", id)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	cmd.Dir = s.Root
-	cmd.Env = append(os.Environ(), "OJ_SPHERE="+s.Sphere)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	b, err := cmd.Output()
-	if err != nil {
-		why := strings.TrimSpace(stderr.String())
-		if why == "" {
-			why = strings.TrimSpace(string(b))
-		}
-		out.Error = strings.TrimSpace(fmt.Sprintf("%s failed (%v): %s", args[0], err, why))
-		return out
-	}
-	if len(b) > 64<<10 {
-		b = b[:64<<10]
-	}
-	out.Text = strings.TrimSpace(string(b))
+	out.Text, out.Error = s.runText(args)
 	return out
 }
 

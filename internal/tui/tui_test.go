@@ -215,7 +215,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, overviewMsg, standingMsg, docMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg:
 		return "oj"
 	}
 	return "tea.other"
@@ -884,5 +884,21 @@ func TestCommonKeys(t *testing.T) {
 	press(t, m, "3")
 	if m.view != vSittings {
 		t.Fatalf("3: view %d", m.view)
+	}
+}
+
+func TestCitedInPane(t *testing.T) {
+	m, st, _ := setup(t)
+	st.Cited = []config.Cited{
+		{Title: "Tâches", Run: []string{"sh", "-c", "echo \"- Relancer Marie pour $0\"", "{ref}"}},
+		{Title: "Notes", Run: []string{"true"}},
+	}
+	press(t, m, "enter")
+	if s := screen(m); !strings.Contains(s, "·· Tâches") || !strings.Contains(s, "Relancer Marie pour oj:RDIR-1") || strings.Contains(s, "Notes") {
+		t.Fatalf("pane:\n%s", s)
+	}
+	press(t, m, "enter")
+	if s := screen(m); !strings.Contains(s, "Tâches") || !strings.Contains(s, "Relancer Marie pour oj:RDIR-1") {
+		t.Fatalf("item view:\n%s", s)
 	}
 }

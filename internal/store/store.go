@@ -37,6 +37,8 @@ type Store struct {
 	Refs map[string]config.RefSource
 	// Asks are named requests a sitting can send to its meeting's ref target.
 	Asks map[string]string
+	// Cited lists what other tools hold about an item (oj item show --cited).
+	Cited []config.Cited
 
 	mu      sync.Mutex
 	pending []hookEvent
@@ -65,7 +67,7 @@ func Open(cfg *config.Config, sphere, by string) (*Store, error) {
 	}
 	return &Store{Sphere: sphere, Root: s.Root, VCS: s.VCS, By: by, Now: time.Now,
 		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "oj: warning: "+m) },
-		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks, Refs: s.Refs, Asks: s.Asks}, nil
+		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks, Refs: s.Refs, Asks: s.Asks, Cited: s.Cited}, nil
 }
 
 // Init creates the store directory and, with a VCS, its repository.

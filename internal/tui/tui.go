@@ -171,6 +171,8 @@ type model struct {
 
 	// refs caches what the sphere's ref commands say, by ref.
 	refs map[string]refEntry
+	// cited caches the sections of the cited block, by item id.
+	cited map[string]citedEntry
 
 	// stamp is the stores' fingerprint at the last look; a change reloads the view.
 	stamp string
@@ -312,6 +314,13 @@ func stamps(stores []*store.Store) string {
 	return b.String()
 }
 
+// citedEntry caches the sections of the cited block for one item.
+type citedEntry struct {
+	sections []store.CitedSection
+	at       time.Time
+	loading  bool
+}
+
 type refEntry struct {
 	shown   store.RefShown
 	at      time.Time
@@ -326,7 +335,7 @@ func newModel(stores ...*store.Store) *model {
 	styles.Cursor.Blink = false
 	in.SetStyles(styles)
 	m := &model{stores: stores, st: stores[0], now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}},
-		refs: map[string]refEntry{}}
+		refs: map[string]refEntry{}, cited: map[string]citedEntry{}}
 	for _, st := range stores {
 		st.Warn = m.warnings.add
 	}
@@ -429,6 +438,10 @@ type (
 	}
 	tickMsg struct{}
 	refMsg  struct{ shown store.RefShown }
+	citedMsg struct {
+		id       string
+		sections []store.CitedSection
+	}
 )
 
 // shownItem is the item whose pane is on screen.
@@ -462,6 +475,12 @@ func (m *model) fetchRefs() tea.Cmd {
 		m.refs[ref] = e
 		ref := ref
 		cmds = append(cmds, func() tea.Msg { return refMsg{m.st.ShowRef(ref)} })
+	}
+	if e, ok := m.cited[it.ID]; m.st.CanCite() && !it.Virtual && !e.loading && (!ok || m.now().Sub(e.at) >= refFresh) {
+		e.loading = true
+		m.cited[it.ID] = e
+		id, st := it.ID, m.st
+		cmds = append(cmds, func() tea.Msg { return citedMsg{id, st.CitedOf("oj:" + id)} })
 	}
 	return tea.Batch(cmds...)
 }
@@ -696,6 +715,8 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchRefs()
 	case refMsg:
 		m.refs[msg.shown.Ref] = refEntry{shown: msg.shown, at: m.now()}
+	case citedMsg:
+		m.cited[msg.id] = citedEntry{sections: msg.sections, at: m.now()}
 	case overviewMsg:
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
