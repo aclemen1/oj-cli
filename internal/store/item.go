@@ -200,6 +200,8 @@ type ItemInput struct {
 	Attach, Refs                                  []string
 	// ClearRefs: refs edit removes.
 	ClearRefs []string
+	// ClearNotes empties the notes kept in the body.
+	ClearNotes bool
 }
 
 func (in *ItemInput) check() error {
@@ -490,6 +492,10 @@ func (s *Store) EditItem(id string, in ItemInput) (*Item, error) {
 		set("duration", &it.Duration, in.Duration)
 		set("expected", &it.Expected, in.Expected)
 		set("notes", &it.Notes, in.Notes)
+		if in.ClearNotes && it.Notes != "" {
+			it.Notes = ""
+			changed = append(changed, "notes")
+		}
 		for _, a := range in.Attach {
 			if !contains(it.Attachments, a) {
 				it.Attachments = append(it.Attachments, a)

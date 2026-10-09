@@ -426,3 +426,23 @@ func TestCited(t *testing.T) {
 		t.Fatalf("cited %+v", got)
 	}
 }
+
+func TestAddNote(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget"}, true, ""))
+	if _, err := s.AddNote("RDIR-1", "x"); err == nil {
+		t.Fatal("no notes.add: an error")
+	}
+	out := filepath.Join(t.TempDir(), "note")
+	s.NotesAdd = []string{"sh", "-c", "{ echo \"$0 $1\"; cat; } > " + out, "{ref}", "{sphere}"}
+	must[*Item](t)(s.AddNote("rdir-1", "Contexte\nsur deux lignes"))
+	if b, _ := os.ReadFile(out); string(b) != "oj:RDIR-1 pro\nContexte\nsur deux lignes" {
+		t.Fatalf("note command got %q", b)
+	}
+	if it := must[*Item](t)(s.Item("RDIR-1")); it.Notes != "" {
+		t.Fatal("the body stays as it is")
+	}
+	if _, err := s.AddNote("RDIR-1", "  "); err == nil {
+		t.Fatal("an empty note is refused")
+	}
+}

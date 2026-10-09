@@ -28,6 +28,8 @@ type Sphere struct {
 	// Cited: what other tools hold about an object of oj, each a command run
 	// with {ref} (oj:RDIR-17), shown as a titled section of the item.
 	Cited []Cited `yaml:"cited,omitempty"`
+	// Notes: where the notes of an item go when they leave its body.
+	Notes Notes `yaml:"notes,omitempty"`
 }
 
 // RefSource runs Show, with {id} replaced by what follows the scheme, and
@@ -42,6 +44,12 @@ type RefSource struct {
 	Open []string `yaml:"open,omitempty"`
 	// Ask sends a request ({text}) to the target ({id}), e.g. a prompt to a dossier's agent.
 	Ask []string `yaml:"ask,omitempty"`
+}
+
+// Notes.Add records a note about an object: a command with {ref} (oj:RDIR-17),
+// {sphere} and {text}; the text also comes on its standard input.
+type Notes struct {
+	Add []string `yaml:"add,omitempty"`
 }
 
 // Cited is one section of an item's aggregated view.

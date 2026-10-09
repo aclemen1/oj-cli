@@ -26,7 +26,7 @@ func itemFields() []spec.Param {
 		{Name: "expected", Kind: spec.String, Help: "For a decision: the question put to the meeting."},
 		{Name: "attach", Kind: spec.StringList, Help: "Attachment (repeatable): artefact://<sphere>/<id>, a path or a URL."},
 		{Name: "ref", Kind: spec.StringList, Help: "Where the item comes from or is followed (repeatable), e.g. office:U-0042."},
-		{Name: "notes", Kind: spec.String, Help: "Free notes, kept in the item's body."},
+		{Name: "notes", Kind: spec.String, Help: "Free notes: kept in the item's body, or added as a note by the sphere's notes.add command."},
 	}
 }
 
@@ -73,7 +73,16 @@ func registerItems() {
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			in := itemInput(ctx)
 			in.Title = ctx.Str("title")
-			return st.AddItem(ctx.Str("meeting"), in, ctx.Bool("accept"), ctx.Str("sitting"))
+			notes := ""
+			if st.CanAddNote() {
+				notes, in.Notes = in.Notes, ""
+			}
+			it, err := st.AddItem(ctx.Str("meeting"), in, ctx.Bool("accept"), ctx.Str("sitting"))
+			if err != nil || notes == "" {
+				return it, err
+			}
+			_, err = st.AddNote(it.ID, notes)
+			return it, err
 		}),
 	})
 	spec.Register(&spec.Action{
@@ -139,15 +148,28 @@ func registerItems() {
 	})
 	spec.Register(&spec.Action{
 		Category: "item", Name: "edit",
-		Summary: "Change fields of an item; attachments and refs are added, --clear-ref removes a ref; --notes replaces the notes.",
+		Summary: "Change fields of an item; attachments and refs are added, --clear-ref removes a ref; --notes replaces the notes, or adds a note with the sphere's notes.add.",
 		Params: append(append([]spec.Param{itemArg(), sphereParam(), {Name: "title", Kind: spec.String, Help: "New title."}}, itemFields()...),
-			spec.Param{Name: "clear-ref", Kind: spec.StringList, Help: "Ref to remove (repeatable), e.g. office:U-0042."}),
+			spec.Param{Name: "clear-ref", Kind: spec.StringList, Help: "Ref to remove (repeatable), e.g. office:U-0042."},
+			spec.Param{Name: "clear-notes", Kind: spec.Bool, Help: "Empty the notes kept in the item's body."}),
 		Effects: []string{"Rewrites the item and logs the fields changed."},
 		Examples: []string{"oj item edit RDIR-17 --duration 30m --sphere pro", "oj item edit RDIR-17 --attach artefact://pro/01JB2X5Q8 --sphere pro",
 			"oj item edit RDIR-17 --notes \"Contexte repris du dossier.\" --clear-ref office:U-0042 --sphere pro"},
 		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
 			in := itemInput(ctx)
 			in.ClearRefs = ctx.List("clear-ref")
+			in.ClearNotes = ctx.Bool("clear-notes")
+			// With notes.add, --notes adds a note elsewhere instead of rewriting the body.
+			if st.CanAddNote() && in.Notes != "" {
+				it, err := st.AddNote(ctx.Str("id"), in.Notes)
+				if err != nil {
+					return nil, err
+				}
+				in.Notes = ""
+				if in.Title+in.Owner+in.Kind+in.Duration+in.Expected == "" && len(in.Attach)+len(in.Refs)+len(in.ClearRefs) == 0 && !in.ClearNotes {
+					return it, nil
+				}
+			}
 			return st.EditItem(ctx.Str("id"), in)
 		}),
 	})

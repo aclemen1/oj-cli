@@ -908,3 +908,19 @@ func TestCitedInPane(t *testing.T) {
 		t.Fatalf("item view:\n%s", s)
 	}
 }
+
+func TestNoteThroughNotesAdd(t *testing.T) {
+	m, st, _ := setup(t)
+	out := filepath.Join(t.TempDir(), "note")
+	st.NotesAdd = []string{"sh", "-c", "{ echo \"$0\"; cat; } > " + out, "{ref}"}
+	press(t, m, "enter")
+	press(t, m, "N")
+	if !m.modal.Open() || m.prompt != pNote {
+		t.Fatal("N opens a modal when the sphere has notes.add")
+	}
+	typeText(t, m, "Vu avec Marie")
+	press(t, m, "ctrl+s")
+	if b, _ := os.ReadFile(out); string(b) != "oj:RDIR-1\nVu avec Marie" {
+		t.Fatalf("note command got %q (status %q)", b, m.status)
+	}
+}

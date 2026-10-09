@@ -50,6 +50,8 @@ func (m *model) openModal(p prompt, target, value string) tea.Cmd {
 		title = target + m.tr(" récurrent", " recurring")
 		content = tuikit.NewForm("place", tuikit.Choice("place", m.tr("Place dans l'ordre du jour", "Place on the agenda"),
 			m.tr("début", "start"), m.tr("fin", "end")).Default(m.tr("fin", "end")))
+	case pNote:
+		title, content = m.tr("Note sur ", "Note on ")+target, tuikit.NewEditor("text", m.tr("Note", "Note"), value)
 	case pNewStanding:
 		title, content = m.tr("Nouveau point récurrent", "New recurring item"), text(m.tr("Titre", "Title"), true)
 	default:

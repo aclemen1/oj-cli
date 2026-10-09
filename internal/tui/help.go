@@ -269,7 +269,7 @@ func (m *model) helpAgenda(b *helpBuilder) {
 			b.key("+/-", m.tr("5 minutes de plus / de moins", "5 minutes more / less"))
 		}
 		b.key("E", m.tr("corriger la fiche (titre, question, durée…)", "edit the item (title, question, duration…)"))
-		b.key("N", m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)"))
+		b.key("N", m.noteHelp())
 		if r.item.StandingKey() == "" && !r.proposed {
 			b.key("*", m.tr("le rendre récurrent (il reviendra à chaque séance)", "make it recurring (it comes back at every sitting)"))
 		}
@@ -331,7 +331,7 @@ func (m *model) helpItem(b *helpBuilder) {
 		}
 	}
 	b.key("E", m.tr("corriger la fiche dans $EDITOR", "edit the item in $EDITOR"))
-	b.key("N", m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)"))
+	b.key("N", m.noteHelp())
 	b.key("esc", m.tr("retour", "back"))
 }
 
@@ -391,4 +391,12 @@ func (m *model) helpSittings(b *helpBuilder) {
 		m.helpFilter(b)
 	}
 	b.key("esc", m.tr("retour", "back"))
+}
+
+// noteHelp says where N writes: a note through notes.add, or the end of the file.
+func (m *model) noteHelp() string {
+	if m.st.CanAddNote() {
+		return m.tr("ajouter une note au point", "add a note to the item")
+	}
+	return m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)")
 }

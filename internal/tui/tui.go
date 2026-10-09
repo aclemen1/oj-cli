@@ -79,6 +79,7 @@ const (
 	pMakeStanding
 	pNewStanding
 	pFilter
+	pNote
 )
 
 // row is a line of the agenda: an item on it, a proposal, a dropped item, or
@@ -1057,6 +1058,11 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			return nil
 		}
 		return m.do(target+m.tr(" devient récurrent", " made recurring"), func() error { _, err := m.st.MakeStanding(target, place, ""); return err })
+	case pNote:
+		if v == "" {
+			return nil
+		}
+		return m.do(m.tr("note ajoutée à ", "note added to ")+target, func() error { _, err := m.st.AddNote(target, v); return err })
 	case pFilter:
 		m.query = v
 		m.sel, m.selM, m.selA, m.selO = 0, 0, 0, 0
@@ -1385,7 +1391,13 @@ func (m *model) edit(id string) tea.Cmd { return m.openEditor(id, false) }
 
 // appendNotes opens an item's file to add to its notes: with vim or nvim,
 // on a new last line in insert mode; other editors open it as edit does.
-func (m *model) appendNotes(id string) tea.Cmd { return m.openEditor(id, true) }
+// appendNotes adds a note: through the sphere's notes.add in a modal, else at the end of the file.
+func (m *model) appendNotes(id string) tea.Cmd {
+	if m.st.CanAddNote() {
+		return m.ask(pNote, "", id, "")
+	}
+	return m.openEditor(id, true)
+}
 
 // editorArgs is the command opening path, at its end in insert mode for an append with vim or nvim.
 func editorArgs(editor, path string, appendAtEnd bool) []string {

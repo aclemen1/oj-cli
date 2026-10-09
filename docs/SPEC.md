@@ -494,10 +494,14 @@ back as it was at the next start.
 | View | Shows | Actions |
 |---|---|---|
 | Meetings | alias, next sitting, items on the agenda and proposed | open (`enter`), actions (`A`), sphere filter (`s`) |
-| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart; under the list, a pane with the selected item (owner, deferrals, question, attachments, refs, notes, outcome, and what the ref commands say about the refs' targets) | `n` new, `a` accept, `d` defer, `x` drop, `J`/`K` move, `+`/`-` 5 min, `e` edit, `f` freeze, `r` reopen, `h` hold, `m` minutes, `[`/`]` other sitting, `l` live |
-| Item | fields, notes, history with outcomes and actions, the full text of each ref's target, log | `e` edit in `$EDITOR` (then committed) |
-| Sitting (live) | the current item, a timer per item, elapsed against plan, the same pane for the current item | `space` timer, `n`/`p` item, `s` summary, `D` decision, `t` action, `-` defer, `h` hold |
-| Actions | actions by due date, overdue in red | `space` done or open, `o` show done, `s` sphere filter |
+| Agenda | a sitting: ordered items, slots, outcome marks, total against duration, proposed items apart; under the list, a pane with the selected item (owner, deferrals, question, attachments, refs, notes, outcome, what the ref commands say about the refs' targets, and the sections of the cited block) | see the key tables above |
+| Item | fields, notes, history with outcomes and actions, the full text of each ref's target, the cited sections, log | `E` edit in `$EDITOR` (then committed), `N` add a note |
+| Sitting (live) | the current item, a timer per item, elapsed against plan, the same pane for the current item | `space` timer, `n`/`p` item, `E` summary, `D` decision, `c` action, `z` defer, `H` hold |
+| Actions | actions by due date, overdue in red | `space` done or open, `e` done, `enter` item, `o` ref, `f` show done, `s` sphere filter |
+
+Every input but the filter opens in a modal (tuikit): a text area, a full
+editor, the action form (what, who with completion, due date, done), a
+choice or a yes/no. The modal takes every key; `ctrl+s` saves, `esc` cancels.
 
 ## 12. Configuration
 
@@ -572,7 +576,17 @@ after a minute; a failing command shows its error in one muted line.
 tool: notes, tasks or dates come from whatever commands the configuration
 lists.
 
+Notes of an item stay in its body unless the sphere declares `notes.add`, a
+command with `{ref}`, `{sphere}` and `{text}` that also gets the text on its
+standard input. Then `N` in the TUI, `item add --notes` and `item edit
+--notes` add a note through it, and the item's file is left as it is; the
+notes come back through a `cited` section. `item edit --clear-notes` empties
+the body, e.g. after the notes moved elsewhere. Rendered agendas and minutes
+never use the notes.
+
 ```yaml
+    notes:
+      add: ["note", "add", "-", "--ref", "{ref}", "--sphere", "{sphere}"]
     cited:
       - title: Tasks
         run: ["task", "ls", "--ref", "{ref}", "--format", "text"]
