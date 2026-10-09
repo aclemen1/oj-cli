@@ -943,3 +943,26 @@ func TestPeopleNamesAndCompletion(t *testing.T) {
 		t.Fatalf("free names come after the contacts: %+v", got)
 	}
 }
+
+func TestSelectAtStart(t *testing.T) {
+	open := func(id string) *model {
+		m, _, _ := setup(t)
+		m.selectID = id
+		drive(t, m, m.Init())
+		return m
+	}
+	m := open("RDIR-2")
+	if m.view != vAgenda || m.agenda.Sitting.ID != "RDIR-2026-10-08" || m.current() == nil || m.current().item.ID != "RDIR-2" {
+		t.Fatalf("item: view %d, sel %d", m.view, m.sel)
+	}
+	if m = open("pro:RDIR-2026-10-08"); m.view != vAgenda || m.agenda.Sitting.ID != "RDIR-2026-10-08" {
+		t.Fatalf("sitting: view %d", m.view)
+	}
+	if m = open("XYZ-9"); m.view != vMeetings || !m.statusErr || !strings.Contains(m.status, "XYZ-9") {
+		t.Fatalf("unknown: view %d, status %q", m.view, m.status)
+	}
+	got := strings.Join(withoutSelect([]string{"oj", "tui", "--select", "RDIR-2", "--sphere", "pro", "--select=X"}), " ")
+	if got != "oj tui --sphere pro" {
+		t.Fatalf("reload args %q", got)
+	}
+}

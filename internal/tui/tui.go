@@ -26,9 +26,10 @@ func init() {
 	spec.Register(&spec.Action{
 		Category: "setup", Name: "tui", Top: true,
 		Summary:  "Open the terminal interface: meetings, agenda, live sitting, actions, of every sphere (s filters).",
-		Params:   []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to every sphere."}},
+		Params: []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to every sphere."},
+			{Name: "select", Kind: spec.String, Help: "Open on this item (the sitting that carries it, the item selected) or this sitting, e.g. RDIR-17 or REQUIP-2026-10-08; an unknown id opens the TUI as usual, with a message."}},
 		Effects:  []string{"Runs until q; every change goes through the same store actions as the CLI."},
-		Examples: []string{"oj tui --sphere pro"},
+		Examples: []string{"oj tui --sphere pro", "oj tui --select RDIR-17", "oj tui --select pro:REQUIP-2026-10-08"},
 		Run: func(ctx *spec.Context) (any, error) {
 			stores, err := actions.OpenRead(ctx)
 			if err != nil {
@@ -40,6 +41,7 @@ func init() {
 				names = append(names, st.Sphere)
 			}
 			m.statePath = statePath(names)
+			m.selectID = ctx.Str("select")
 			m.exe = self()
 			m.exeStamp, m.build = binStamp(m.exe), buildLabel(m.exe)
 			if v := os.Getenv(reloadedEnv); v != "" {
@@ -198,6 +200,9 @@ type model struct {
 
 	// query filters the lists (/); gPending waits for the second key of gg or g r;
 	// paneOff hides the item pane (tab), paneScroll scrolls it (J K).
+	// selectID is the item or sitting given by --select.
+	selectID string
+
 	query      string
 	gPending   bool
 	paneOff    bool
@@ -638,7 +643,13 @@ func tick() tea.Cmd { return tea.Tick(time.Second, func(time.Time) tea.Msg { ret
 
 func (m *model) Init() tea.Cmd {
 	m.peopleLoading = true
-	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), m.restore(), m.watch(), m.loadPeople())
+	restore := m.restore()
+	if m.selectID != "" {
+		// The saved preferences stay; the saved place gives way to the selection.
+		m.view, m.back, m.pick, m.keepView, m.restoreLive = vMeetings, vMeetings, "", false, ""
+		restore = m.openSelected(m.selectID)
+	}
+	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), restore, m.watch(), m.loadPeople())
 }
 
 func (m *model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isErr }

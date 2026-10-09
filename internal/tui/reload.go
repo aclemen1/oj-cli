@@ -89,5 +89,5 @@ func run(m *model) error {
 	}
 	m.persist()
 	signal.Stop(sig)
-	return syscall.Exec(m.exe, os.Args, append(os.Environ(), reloadedEnv+"="+buildLabel(m.exe)))
+	return syscall.Exec(m.exe, withoutSelect(os.Args), append(os.Environ(), reloadedEnv+"="+buildLabel(m.exe)))
 }

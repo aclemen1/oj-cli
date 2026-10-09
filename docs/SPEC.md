@@ -421,6 +421,9 @@ oj import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 ## 11. TUI
 
 `oj tui`, Bubble Tea v2, keys of the ecosystem's common convention.
+`oj tui --select <id>` opens on an item (the sitting that carries it, the item
+selected) or on a sitting; an unknown id opens as usual, with a message. A
+reload after a rebuild drops `--select` and keeps where the user went.
 `esc` goes back to the previous view and never quits; `q` quits from any
 view, except in a text field, where it is typed.
 
