@@ -1036,7 +1036,7 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	sit := m.agenda.Sitting
 	// A gesture on a recurring item still virtual writes it first.
 	switch k.String() {
-	case "enter", "a", "d", "x", "+", "-", "e", "c", "u", "o":
+	case "enter", "a", "d", "x", "+", "-", "e", "N", "c", "u", "o":
 		if r != nil && r.item.Virtual {
 			if _, err := m.real(r.item); err != nil {
 				m.setStatus(err.Error(), true)
@@ -1107,6 +1107,10 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	case "e":
 		if r != nil {
 			return m.edit(r.item.ID)
+		}
+	case "N":
+		if r != nil {
+			return m.appendNotes(r.item.ID)
 		}
 	case "f":
 		id := sit.ID
@@ -1259,18 +1263,36 @@ func (m *model) step(next bool) tea.Cmd {
 }
 
 // edit opens an item's file in $EDITOR, then commits it.
-func (m *model) edit(id string) tea.Cmd {
+func (m *model) edit(id string) tea.Cmd { return m.openEditor(id, false) }
+
+// appendNotes opens an item's file to add to its notes: with vim or nvim,
+// on a new last line in insert mode; other editors open it as edit does.
+func (m *model) appendNotes(id string) tea.Cmd { return m.openEditor(id, true) }
+
+// editorArgs is the command opening path, at its end in insert mode for an append with vim or nvim.
+func editorArgs(editor, path string, appendAtEnd bool) []string {
+	if editor == "" {
+		editor = "vi"
+	}
+	parts := strings.Fields(editor)
+	args := parts[1:]
+	switch filepath.Base(parts[0]) {
+	case "vim", "nvim", "vi":
+		if appendAtEnd {
+			args = append(args, "+normal! Go", "+startinsert")
+		}
+	}
+	return append(append([]string{parts[0]}, args...), path)
+}
+
+func (m *model) openEditor(id string, appendAtEnd bool) tea.Cmd {
 	path, err := m.st.ItemPath(id)
 	if err != nil {
 		m.setStatus(err.Error(), true)
 		return nil
 	}
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
-	}
-	parts := strings.Fields(editor)
-	cmd := exec.Command(parts[0], append(parts[1:], path)...)
+	argv := editorArgs(os.Getenv("EDITOR"), path, appendAtEnd)
+	cmd := exec.Command(argv[0], argv[1:]...)
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		if err != nil {
 			return doneMsg{err: err}
@@ -1291,6 +1313,10 @@ func (m *model) keyItem(k tea.KeyPressMsg) tea.Cmd {
 	case "e":
 		if m.item != nil {
 			return m.edit(m.item.ID)
+		}
+	case "N":
+		if m.item != nil {
+			return m.appendNotes(m.item.ID)
 		}
 	case "o":
 		if m.item != nil {

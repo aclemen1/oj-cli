@@ -118,7 +118,7 @@ func (m *model) renderMain() ([]string, string) {
 	case vDoc:
 		lines, help = m.renderDoc(), helpLine("j/k", "scroll", "G", "ask outcomes", "esc", "agenda")
 	case vItem:
-		lines, help = m.renderItem(), helpLine("e", "edit", "j/k", "scroll", "esc", "back")
+		lines, help = m.renderItem(), helpLine("e", "edit", "N", "add note", "j/k", "scroll", "esc", "back")
 	case vLive:
 		lines, help = m.renderLive(), helpLine("space", "timer", "n/p", "next/previous", "s", "summary", "D", "decision",
 			"t", "action", "-", "defer", "h", "hold", "esc", "agenda")
@@ -305,7 +305,7 @@ func (m *model) agendaPairs() []string {
 	if u := undoSittingLabel(m.agenda); u != "" {
 		p = append(p, "U", u)
 	}
-	p = append(p, "*", "recurring", "R", "recurring list", "e", "edit", "M", "move to", "J/K", "order", "+/-", "5 min",
+	p = append(p, "*", "recurring", "R", "recurring list", "e", "edit", "N", "add note", "M", "move to", "J/K", "order", "+/-", "5 min",
 		"o", "open ref", "c", "create ref", "A", "actions", "S", "sittings", "[/]", "sitting", "esc", "back")
 	return p
 }

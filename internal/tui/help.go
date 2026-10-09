@@ -263,7 +263,8 @@ func (m *model) helpAgenda(b *helpBuilder) {
 		if open {
 			b.key("+/-", m.tr("5 minutes de plus / de moins", "5 minutes more / less"))
 		}
-		b.key("e", m.tr("éditer (question, notes…)", "edit (question, notes…)"))
+		b.key("e", m.tr("corriger la fiche (titre, question, durée…)", "edit the item (title, question, duration…)"))
+		b.key("N", m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)"))
 		if r.item.StandingKey() == "" && !r.proposed {
 			b.key("*", m.tr("le rendre récurrent (il reviendra à chaque séance)", "make it recurring (it comes back at every sitting)"))
 		}
@@ -324,7 +325,8 @@ func (m *model) helpItem(b *helpBuilder) {
 			b.key("o", m.tr("aller à "+ref, "go to "+ref))
 		}
 	}
-	b.key("e", m.tr("éditer dans $EDITOR", "edit in $EDITOR"))
+	b.key("e", m.tr("corriger la fiche dans $EDITOR", "edit the item in $EDITOR"))
+	b.key("N", m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)"))
 	b.key("esc", m.tr("retour", "back"))
 }
 

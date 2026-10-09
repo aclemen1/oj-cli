@@ -749,3 +749,22 @@ func TestSeveralSpheres(t *testing.T) {
 		t.Fatalf("overview of both spheres:\n%s", s)
 	}
 }
+
+func TestEditorArgs(t *testing.T) {
+	cases := []struct {
+		editor string
+		add    bool
+		want   string
+	}{
+		{"nvim", true, "nvim|+normal! Go|+startinsert|f.md"},
+		{"/opt/homebrew/bin/vim -u NONE", true, "/opt/homebrew/bin/vim|-u|NONE|+normal! Go|+startinsert|f.md"},
+		{"nvim", false, "nvim|f.md"},
+		{"code --wait", true, "code|--wait|f.md"},
+		{"", false, "vi|f.md"},
+	}
+	for _, c := range cases {
+		if got := strings.Join(editorArgs(c.editor, "f.md", c.add), "|"); got != c.want {
+			t.Errorf("editorArgs(%q, %v) = %q, want %q", c.editor, c.add, got, c.want)
+		}
+	}
+}
