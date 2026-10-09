@@ -249,7 +249,7 @@ func (m *model) renderAgenda() []string {
 		it := r.item
 		owner := ""
 		if it.Owner != "" {
-			owner = sMuted.Render(" — " + it.Owner)
+			owner = sMuted.Render(" — " + m.name(it.Owner))
 		}
 		var line string
 		switch {
@@ -401,7 +401,7 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 			lines = append(lines, fmt.Sprintf("%s %s", sMuted.Render(fmt.Sprintf("%-9s", key)), l))
 		}
 	}
-	who := strings.Join(nonEmpty(it.Owner, it.Kind, it.Duration), " · ")
+	who := strings.Join(nonEmpty(m.name(it.Owner), it.Kind, it.Duration), " · ")
 	var deferred []string
 	for _, e := range it.History {
 		if e.Result == "deferred" {
@@ -423,7 +423,7 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 		field("Summary", o.Summary)
 		field("Decision", o.Decision)
 		for _, a := range o.Actions {
-			field("Action", strings.Join(nonEmpty(a.What, a.Who, m.dayOrEmpty(a.Due)), " · "))
+			field("Action", strings.Join(nonEmpty(a.What, m.name(a.Who), m.dayOrEmpty(a.Due)), " · "))
 		}
 		field("Outcome", fmt.Sprintf("%s by %s, next %s", o.Status, o.By, o.Next))
 	}
@@ -481,7 +481,7 @@ func (m *model) renderItem() []string {
 	}
 	lines := []string{sBold.Render(it.Title), sMuted.Render(it.ID) + "  " + stateStyle(it.State).Render(it.State), ""}
 	for _, l := range []string{
-		field("sitting", it.Sitting), field("owner", it.Owner), field("kind", it.Kind), field("duration", it.Duration),
+		field("sitting", it.Sitting), field("owner", m.name(it.Owner)), field("kind", it.Kind), field("duration", it.Duration),
 		field("question", it.Expected), field("reason", it.Reason),
 		field("attachments", strings.Join(it.Attachments, ", ")), field("refs", strings.Join(it.Refs, ", ")),
 	} {
@@ -509,7 +509,7 @@ func (m *model) renderItem() []string {
 					if a.Done {
 						mark = "[x]"
 					}
-					lines = append(lines, fmt.Sprintf("    %s %s (%s, %s)", mark, a.What, a.Who, m.dayOrEmpty(a.Due)))
+					lines = append(lines, fmt.Sprintf("    %s %s (%s, %s)", mark, a.What, m.name(a.Who), m.dayOrEmpty(a.Due)))
 				}
 				lines = append(lines, sMuted.Render(fmt.Sprintf("    %s by %s, next %s", o.Status, o.By, o.Next)))
 			}
@@ -574,7 +574,7 @@ func (m *model) renderLive() []string {
 				out = append(out, "      ! "+ai.Outcome.Decision)
 			}
 			for _, a := range ai.Outcome.Actions {
-				out = append(out, fmt.Sprintf("      > %s (%s, %s)", a.What, a.Who, m.dayOrEmpty(a.Due)))
+				out = append(out, fmt.Sprintf("      > %s (%s, %s)", a.What, m.name(a.Who), m.dayOrEmpty(a.Due)))
 			}
 		}
 	}
@@ -606,7 +606,7 @@ func (m *model) renderActions() []string {
 		if a.Due != "" && a.Due < m.now().Format("2006-01-02") && !a.Done {
 			due = sErr.Render(due)
 		}
-		line := fmt.Sprintf("  %s %s %-14s %s  %s", mark, due, a.Who, a.What, sMuted.Render(m.tagged(a.Sphere, fmt.Sprintf("%s#%d", a.Item, a.N))))
+		line := fmt.Sprintf("  %s %s %-14s %s  %s", mark, due, m.name(a.Who), a.What, sMuted.Render(m.tagged(a.Sphere, fmt.Sprintf("%s#%d", a.Item, a.N))))
 		if i == m.selA {
 			line = selectLine(line, m.w)
 		}

@@ -202,6 +202,8 @@ type ItemInput struct {
 	ClearRefs []string
 	// ClearNotes empties the notes kept in the body.
 	ClearNotes bool
+	// ClearOwner empties the owner.
+	ClearOwner bool
 }
 
 func (in *ItemInput) check() error {
@@ -488,6 +490,10 @@ func (s *Store) EditItem(id string, in ItemInput) (*Item, error) {
 		}
 		set("title", &it.Title, in.Title)
 		set("owner", &it.Owner, in.Owner)
+		if in.ClearOwner && it.Owner != "" {
+			it.Owner = ""
+			changed = append(changed, "owner")
+		}
 		set("kind", &it.Kind, in.Kind)
 		set("duration", &it.Duration, in.Duration)
 		set("expected", &it.Expected, in.Expected)

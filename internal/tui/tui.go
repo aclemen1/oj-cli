@@ -181,6 +181,13 @@ type model struct {
 	// modal is the open input (tuikit); prompt and target say what it answers.
 	modal *tuikit.Modal
 
+	// persons are the people of the spheres (people.list), loaded in the background;
+	// names maps their values to labels.
+	persons       []store.Person
+	names         map[string]string
+	peopleAt      time.Time
+	peopleLoading bool
+
 	// stamp is the stores' fingerprint at the last look; a change reloads the view.
 	stamp string
 
@@ -445,6 +452,7 @@ type (
 	}
 	tickMsg  struct{}
 	refMsg   struct{ shown store.RefShown }
+	peopleMsg struct{ list []store.Person }
 	citedMsg struct {
 		id       string
 		sections []store.CitedSection
@@ -468,11 +476,19 @@ func (m *model) shownItem() *store.Item {
 
 // fetchRefs asks for the refs of the shown item that are missing or stale.
 func (m *model) fetchRefs() tea.Cmd {
+	var people tea.Cmd
+	if !m.peopleLoading && (m.peopleAt.IsZero() || m.now().Sub(m.peopleAt) >= refFresh) {
+		m.peopleLoading = true
+		people = m.loadPeople()
+	}
 	it := m.shownItem()
 	if it == nil {
-		return nil
+		return people
 	}
 	var cmds []tea.Cmd
+	if people != nil {
+		cmds = append(cmds, people)
+	}
 	for _, ref := range it.Refs {
 		e, ok := m.refs[ref]
 		if !m.st.CanShowRef(ref) || e.loading || (ok && m.now().Sub(e.at) < refFresh) {
@@ -621,7 +637,8 @@ func tick() tea.Cmd { return tea.Tick(time.Second, func(time.Time) tea.Msg { ret
 // ------------------------------------------------------------------ update
 
 func (m *model) Init() tea.Cmd {
-	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), m.restore(), m.watch())
+	m.peopleLoading = true
+	return tea.Batch(tea.RequestBackgroundColor, m.loadMeetings(), m.restore(), m.watch(), m.loadPeople())
 }
 
 func (m *model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isErr }
@@ -749,6 +766,11 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, m.fetchRefs()
 	case refMsg:
 		m.refs[msg.shown.Ref] = refEntry{shown: msg.shown, at: m.now()}
+	case peopleMsg:
+		m.persons, m.names, m.peopleAt, m.peopleLoading = msg.list, map[string]string{}, m.now(), false
+		for _, p := range msg.list {
+			m.names[strings.ToLower(p.Value)] = p.Label
+		}
 	case citedMsg:
 		m.cited[msg.id] = citedEntry{sections: msg.sections, at: m.now()}
 	case overviewMsg:

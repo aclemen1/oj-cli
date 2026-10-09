@@ -446,3 +446,20 @@ func TestAddNote(t *testing.T) {
 		t.Fatal("an empty note is refused")
 	}
 }
+
+func TestEditAction(t *testing.T) {
+	s := withRDIR(t)
+	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Budget", Owner: "Alain"}, true, ""))
+	must[*Item](t)(s.SetOutcome("RDIR-1", "", OutcomeInput{Decision: "OK", Actions: []string{"Envoyer|Patricia|2026-10-20"}}))
+	who, none := "contact:PB", ""
+	it := must[*Item](t)(s.EditAction("RDIR-1", "", 1, ActionEdit{Who: &who, Due: &none}))
+	if a := it.History[0].Outcome.Actions[0]; a.Who != "contact:PB" || a.Due != "" {
+		t.Fatalf("action %+v", a)
+	}
+	if _, err := s.EditAction("RDIR-1", "", 1, ActionEdit{Who: &who}); err == nil {
+		t.Fatal("nothing to change: an error")
+	}
+	if it := must[*Item](t)(s.EditItem("RDIR-1", ItemInput{ClearOwner: true})); it.Owner != "" {
+		t.Fatal("clear owner")
+	}
+}

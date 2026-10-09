@@ -73,4 +73,41 @@ func init() {
 			return st.SetActionDone(ctx.Str("id"), ctx.Str("sitting"), n, !ctx.Bool("undo"))
 		}),
 	})
+	spec.Register(&spec.Action{
+		Category: "actions", Name: "edit",
+		Summary:  "Change who does an action, or its due date, even in approved minutes.",
+		Params: []spec.Param{
+			{Name: "id", Kind: spec.String, Positional: true, Required: true, Help: "Item id, e.g. RDIR-17."},
+			{Name: "n", Kind: spec.String, Positional: true, Required: true, Help: "Number of the action, from 1, as `oj actions ls` shows it."},
+			sphereParam(),
+			{Name: "sitting", Kind: spec.String, Help: "Sitting of the outcome. Defaults to the latest outcome with actions."},
+			{Name: "who", Kind: spec.String, Help: "Who does it, e.g. contact:JMR."},
+			{Name: "clear-who", Kind: spec.Bool, Help: "Empty who: the owner of the agenda does it."},
+			{Name: "due", Kind: spec.String, Help: "Due date, YYYY-MM-DD."},
+			{Name: "clear-due", Kind: spec.Bool, Help: "Remove the due date."},
+		},
+		Effects:  []string{"Rewrites the item with the action changed; fires action.edited."},
+		Examples: []string{"oj actions edit PSEC-1 1 --who contact:PB --sphere pro", "oj actions edit RDIR-1 1 --clear-who --sphere pro"},
+		Run: with(func(ctx *spec.Context, st *store.Store) (any, error) {
+			n, err := strconv.Atoi(ctx.Str("n"))
+			if err != nil {
+				return nil, spec.UserError("<n> takes a number, got %q. Example: oj actions edit RDIR-17 1 --who contact:JMR", ctx.Str("n"))
+			}
+			var in store.ActionEdit
+			empty := ""
+			switch who := ctx.Str("who"); {
+			case ctx.Bool("clear-who"):
+				in.Who = &empty
+			case who != "":
+				in.Who = &who
+			}
+			switch due := ctx.Str("due"); {
+			case ctx.Bool("clear-due"):
+				in.Due = &empty
+			case due != "":
+				in.Due = &due
+			}
+			return st.EditAction(ctx.Str("id"), ctx.Str("sitting"), n, in)
+		}),
+	})
 }

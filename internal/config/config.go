@@ -30,6 +30,8 @@ type Sphere struct {
 	Cited []Cited `yaml:"cited,omitempty"`
 	// Notes: where the notes of an item go when they leave its body.
 	Notes Notes `yaml:"notes,omitempty"`
+	// People: the names offered and shown for owner, chair, members and who.
+	People People `yaml:"people,omitempty"`
 }
 
 // RefSource runs Show, with {id} replaced by what follows the scheme, and
@@ -44,6 +46,13 @@ type RefSource struct {
 	Open []string `yaml:"open,omitempty"`
 	// Ask sends a request ({text}) to the target ({id}), e.g. a prompt to a dossier's agent.
 	Ask []string `yaml:"ask,omitempty"`
+}
+
+// People.List prints one person per line, "value<TAB>label" (contact:JMR	Jean-Moïse Rochat);
+// Me is the value an empty who stands for in rendered documents.
+type People struct {
+	List []string `yaml:"list,omitempty"`
+	Me   string   `yaml:"me,omitempty"`
 }
 
 // Notes.Add records a note about an object: a command with {ref} (oj:RDIR-17),

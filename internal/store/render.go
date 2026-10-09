@@ -159,7 +159,12 @@ func (s *Store) doc(sit *Sitting, m *Meeting, kind string, final bool) (*Doc, er
 		}
 	}
 	lang := s.lang(m)
-	d := &Doc{Kind: kind, Lang: lang, Meeting: m, Sitting: sit, Date: longDate(sit.Date, lang), Final: final}
+	named := *m
+	named.Chair = s.PersonLabel(m.Chair)
+	named.Members = s.labels(m.Members)
+	held := *sit
+	held.Present, held.Excused = s.labels(sit.Present), s.labels(sit.Excused)
+	d := &Doc{Kind: kind, Lang: lang, Meeting: &named, Sitting: &held, Date: longDate(sit.Date, lang), Final: final}
 	var clock time.Time
 	if sit.Time != "" {
 		clock, _ = time.Parse("15:04", sit.Time)
@@ -170,9 +175,11 @@ func (s *Store) doc(sit *Sitting, m *Meeting, kind string, final bool) (*Doc, er
 		if sit.Time != "" {
 			start = clock.Add(total).Format("15:04")
 		}
-		di := DocItem{N: i + 1, Start: start, Item: it}
+		shown := *it
+		shown.Owner = s.PersonLabel(it.Owner)
+		di := DocItem{N: i + 1, Start: start, Item: &shown}
 		if e := it.entry(sit.ID); e != nil {
-			di.Outcome = e.Outcome
+			di.Outcome = s.namedOutcome(e.Outcome)
 			di.Deferred = e.Result == "deferred" || (e.Result == "" && (e.Outcome == nil || e.Outcome.Next == "deferred"))
 		} else {
 			di.Deferred = kind == "minutes"

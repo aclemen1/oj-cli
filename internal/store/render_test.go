@@ -175,3 +175,23 @@ func TestSphereConverter(t *testing.T) {
 		t.Fatalf("a converter that writes nothing: %v", err)
 	}
 }
+
+func TestMinutesShowNames(t *testing.T) {
+	s := frenchCycle(t)
+	s.PeopleList = []string{"printf", "contact:MB\\tMarie Bovet\\ncontact:AC\\tAlain Clément\\n"}
+	s.PeopleMe = "contact:AC"
+	must[*Changed](t)(s.FreezeSitting("RDIR", false))
+	must[*Sitting](t)(s.HoldSitting("RDIR-2026-10-08", []string{"contact:MB", "Paul"}, nil))
+	must[*Item](t)(s.SetOutcome("RDIR-1", "", OutcomeInput{Decision: "OK",
+		Actions: []string{"Transmettre|contact:MB|2026-10-20", "Signer||"}}))
+	mn := must[*Minuted](t)(s.MinuteSitting("RDIR-2026-10-08"))
+	md := read(t, mn.Rendered)
+	for _, want := range []string{"Présents : Marie Bovet, Paul", "- Transmettre — Marie Bovet — 20.10.2026", "- Signer — Alain Clément"} {
+		if !strings.Contains(md, want) {
+			t.Fatalf("minutes miss %q:\n%s", want, md)
+		}
+	}
+	if it := must[*Item](t)(s.Item("RDIR-1")); it.History[0].Outcome.Actions[0].Who != "contact:MB" {
+		t.Fatal("the stored value stays the alias")
+	}
+}

@@ -93,11 +93,20 @@ func clean(s string) string {
 	return strings.TrimSpace(strings.Join(strings.Fields(strings.ReplaceAll(s, "|", "/")), " "))
 }
 
-// people are the names already met in the sphere: owners, chairs, members, who of actions.
+// people are the persons of people.list, then the free names already met
+// in the sphere (owners, chairs, members, who of actions) that are not one of them.
 func (m *model) people(q string) []tuikit.Item {
+	var out []tuikit.Item
+	known := map[string]bool{}
+	for _, p := range m.persons {
+		known[strings.ToLower(p.Value)] = true
+		if matches(q, p.Value, p.Label) {
+			out = append(out, tuikit.Item{Value: p.Value, Label: p.Label})
+		}
+	}
 	seen := map[string]bool{}
 	add := func(n string) {
-		if n = strings.TrimSpace(n); n != "" {
+		if n = strings.TrimSpace(n); n != "" && !known[strings.ToLower(n)] {
 			seen[n] = true
 		}
 	}
@@ -119,15 +128,35 @@ func (m *model) people(q string) []tuikit.Item {
 			add(ai.Item.Owner)
 		}
 	}
-	var out []tuikit.Item
+	var free []tuikit.Item
 	for n := range seen {
 		if matches(q, n) {
-			out = append(out, tuikit.Item{Value: n, Label: n})
+			free = append(free, tuikit.Item{Value: n, Label: n})
 		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Value < out[j].Value })
-	return out
+	sort.Slice(free, func(i, j int) bool { return free[i].Value < free[j].Value })
+	return append(out, free...)
 }
 
 // ownPkg is the package of oj's own messages, which the modal never needs.
 var ownPkg = reflect.TypeOf(watchMsg{}).PkgPath()
+
+// loadPeople reads the people of every sphere in the background.
+func (m *model) loadPeople() tea.Cmd {
+	stores := m.stores
+	return func() tea.Msg {
+		var all []store.Person
+		for _, st := range stores {
+			all = append(all, st.People()...)
+		}
+		return peopleMsg{all}
+	}
+}
+
+// name is the label of a stored person (contact:JMR → Jean-Moïse Rochat), or the value as it is.
+func (m *model) name(v string) string {
+	if l, ok := m.names[strings.ToLower(v)]; ok {
+		return l
+	}
+	return v
+}

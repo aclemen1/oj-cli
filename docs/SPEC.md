@@ -342,6 +342,7 @@ directory, with a timeout (30 s by default).
 | `outcome.set` | item, sitting, outcome | tell the dossier what was decided |
 | `action.added` | item, sitting, n, action — only for an action new in the outcome | record the action in a task tool |
 | `action.done`, `action.reopened` | item, sitting, n, action — only when the state changes | mark the task done or open in a task tool |
+| `action.edited` | item, sitting, n, action | follow who or the due date in a task tool |
 | `sitting.moved`, `sitting.cancelled` | sitting (moved items; `source: calendar` from a sync) | tell the meeting's dossier |
 | `sitting.frozen` | sitting, rendered agenda path, items | deposit the agenda in an artefact store |
 | `sitting.held` | sitting | |
@@ -584,7 +585,19 @@ notes come back through a `cited` section. `item edit --clear-notes` empties
 the body, e.g. after the notes moved elsewhere. Rendered agendas and minutes
 never use the notes.
 
+People are stored as their value, e.g. `contact:JMR`, in `owner`, `chair`,
+`members`, `present`, `excused` and the `who` of actions. The sphere's
+`people.list` command prints one person per line, `value<TAB>label`; the TUI
+completes `who` on it (a free name stays possible) and shows the labels, and
+rendered agendas and minutes show the labels too. `people.me` is the value
+an empty `who` stands for in rendered documents. `oj actions edit <item> <n>
+--who|--clear-who|--due|--clear-due` changes an action even in approved
+minutes (event `action.edited`); `item edit --clear-owner` empties the owner.
+
 ```yaml
+    people:
+      list: ["oj-people"]          # e.g. from a contacts directory
+      me: contact:AC
     notes:
       add: ["note", "add", "-", "--ref", "{ref}", "--sphere", "{sphere}"]
     cited:

@@ -4,6 +4,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/aclemen1/oj-cli/internal/spec"
 )
@@ -91,6 +92,41 @@ func (s *Store) SetActionDone(id, sitting string, n int, done bool) (*Item, erro
 		e.Outcome.Actions[n-1].Done = done
 		s.log(&it.Log, "action "+e.Sitting+"#"+strconv.Itoa(n)+" "+verb)
 		s.emit(event, it.Meeting, map[string]any{"item": it, "sitting": e.Sitting, "n": n, "action": e.Outcome.Actions[n-1]})
+		return nil
+	})
+}
+
+// ActionEdit changes fields of one action; a nil field is left as it is.
+type ActionEdit struct {
+	Who, Due *string
+}
+
+// EditAction changes who does action n, or its due date, in any state of the
+// sitting: approved minutes keep their decisions, not their people.
+func (s *Store) EditAction(id, sitting string, n int, in ActionEdit) (*Item, error) {
+	if in.Due != nil && *in.Due != "" {
+		if _, err := time.Parse("2006-01-02", *in.Due); err != nil {
+			return nil, spec.UserError("--due takes YYYY-MM-DD, got %q", *in.Due)
+		}
+	}
+	return s.changeItem(id, "actions edit "+strings.ToUpper(id), func(it *Item, _ *Meeting) error {
+		e, err := actionEntry(it, sitting, n)
+		if err != nil {
+			return err
+		}
+		a := &e.Outcome.Actions[n-1]
+		var changed []string
+		if in.Who != nil && *in.Who != a.Who {
+			a.Who, changed = strings.TrimSpace(*in.Who), append(changed, "who")
+		}
+		if in.Due != nil && *in.Due != a.Due {
+			a.Due, changed = *in.Due, append(changed, "due")
+		}
+		if len(changed) == 0 {
+			return spec.UserError("actions edit changes nothing. Example: oj actions edit %s %d --who contact:JMR", it.ID, n)
+		}
+		s.log(&it.Log, "action "+e.Sitting+"#"+strconv.Itoa(n)+" edited "+strings.Join(changed, ", "))
+		s.emit("action.edited", it.Meeting, map[string]any{"item": it, "sitting": e.Sitting, "n": n, "action": *a})
 		return nil
 	})
 }

@@ -41,6 +41,10 @@ type Store struct {
 	Cited []config.Cited
 	// NotesAdd records an item's note elsewhere (notes.add); empty: notes stay in the body.
 	NotesAdd []string
+	// PeopleList and PeopleMe come from the sphere's people block.
+	PeopleList []string
+	PeopleMe   string
+	people     peopleCache
 
 	mu      sync.Mutex
 	pending []hookEvent
@@ -69,7 +73,7 @@ func Open(cfg *config.Config, sphere, by string) (*Store, error) {
 	}
 	return &Store{Sphere: sphere, Root: s.Root, VCS: s.VCS, By: by, Now: time.Now,
 		Warn:   func(m string) { fmt.Fprintln(os.Stderr, "oj: warning: "+m) },
-		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks, Refs: s.Refs, Asks: s.Asks, Cited: s.Cited, NotesAdd: s.Notes.Add}, nil
+		Render: s.Render, Tools: cfg.Render, Hooks: s.Hooks, Refs: s.Refs, Asks: s.Asks, Cited: s.Cited, NotesAdd: s.Notes.Add, PeopleList: s.People.List, PeopleMe: s.People.Me}, nil
 }
 
 // Init creates the store directory and, with a VCS, its repository.

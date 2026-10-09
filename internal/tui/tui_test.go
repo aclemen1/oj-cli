@@ -215,7 +215,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg, tuikit.DoneMsg, tuikit.CancelMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg, tuikit.DoneMsg, tuikit.CancelMsg, peopleMsg:
 		return "oj"
 	}
 	return "tea.other"
@@ -922,5 +922,24 @@ func TestNoteThroughNotesAdd(t *testing.T) {
 	press(t, m, "ctrl+s")
 	if b, _ := os.ReadFile(out); string(b) != "oj:RDIR-1\nVu avec Marie" {
 		t.Fatalf("note command got %q (status %q)", b, m.status)
+	}
+}
+
+func TestPeopleNamesAndCompletion(t *testing.T) {
+	m, st, _ := setup(t)
+	st.PeopleList = []string{"printf", "contact:MB\\tMarie Bovet\\n"}
+	st.EditItem("RDIR-1", store.ItemInput{Owner: "contact:MB"})
+	drive(t, m, m.loadPeople())
+	press(t, m, "enter")
+	if s := screen(m); !strings.Contains(s, "Marie Bovet") || strings.Contains(s, "contact:MB") {
+		t.Fatalf("names shown:\n%s", s)
+	}
+	got := m.people("bov")
+	if len(got) == 0 || got[0].Value != "contact:MB" {
+		t.Fatalf("completion %+v", got)
+	}
+	st.SetOutcome("RDIR-2", "", store.OutcomeInput{Decision: "OK", Actions: []string{"Appeler|Paul|"}})
+	if got := m.people(""); len(got) != 2 || got[0].Value != "contact:MB" || got[1].Value != "Paul" {
+		t.Fatalf("free names come after the contacts: %+v", got)
 	}
 }

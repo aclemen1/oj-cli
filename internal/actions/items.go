@@ -151,7 +151,8 @@ func registerItems() {
 		Summary: "Change fields of an item; attachments and refs are added, --clear-ref removes a ref; --notes replaces the notes, or adds a note with the sphere's notes.add.",
 		Params: append(append([]spec.Param{itemArg(), sphereParam(), {Name: "title", Kind: spec.String, Help: "New title."}}, itemFields()...),
 			spec.Param{Name: "clear-ref", Kind: spec.StringList, Help: "Ref to remove (repeatable), e.g. office:U-0042."},
-			spec.Param{Name: "clear-notes", Kind: spec.Bool, Help: "Empty the notes kept in the item's body."}),
+			spec.Param{Name: "clear-notes", Kind: spec.Bool, Help: "Empty the notes kept in the item's body."},
+			spec.Param{Name: "clear-owner", Kind: spec.Bool, Help: "Empty the owner."}),
 		Effects: []string{"Rewrites the item and logs the fields changed."},
 		Examples: []string{"oj item edit RDIR-17 --duration 30m --sphere pro", "oj item edit RDIR-17 --attach artefact://pro/01JB2X5Q8 --sphere pro",
 			"oj item edit RDIR-17 --notes \"Contexte repris du dossier.\" --clear-ref office:U-0042 --sphere pro"},
@@ -159,6 +160,7 @@ func registerItems() {
 			in := itemInput(ctx)
 			in.ClearRefs = ctx.List("clear-ref")
 			in.ClearNotes = ctx.Bool("clear-notes")
+			in.ClearOwner = ctx.Bool("clear-owner")
 			// With notes.add, --notes adds a note elsewhere instead of rewriting the body.
 			if st.CanAddNote() && in.Notes != "" {
 				it, err := st.AddNote(ctx.Str("id"), in.Notes)
@@ -166,7 +168,7 @@ func registerItems() {
 					return nil, err
 				}
 				in.Notes = ""
-				if in.Title+in.Owner+in.Kind+in.Duration+in.Expected == "" && len(in.Attach)+len(in.Refs)+len(in.ClearRefs) == 0 && !in.ClearNotes {
+				if in.Title+in.Owner+in.Kind+in.Duration+in.Expected == "" && len(in.Attach)+len(in.Refs)+len(in.ClearRefs) == 0 && !in.ClearNotes && !in.ClearOwner {
 					return it, nil
 				}
 			}
