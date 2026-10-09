@@ -12,6 +12,7 @@ import (
 
 	"github.com/aclemen1/oj-cli/internal/config"
 	"github.com/aclemen1/oj-cli/internal/store"
+	"github.com/aclemen1/tuikit"
 )
 
 // The watch sleeps between looks; tests send its messages themselves.
@@ -49,7 +50,7 @@ func TestStandingInTUI(t *testing.T) {
 	*now = now.Add(2 * time.Minute)
 	press(t, m, "E")
 	typeText(t, m, "Le 22")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	it := m.agenda.Items[0].Item
 	if it.Virtual || it.StandingKey() != "suite" || it.History[0].Outcome.Summary != "Le 22" {
 		t.Fatalf("live outcome on a recurring item %+v", it)
@@ -108,9 +109,8 @@ func TestStandingFromTUI(t *testing.T) {
 	// * on Point RH: recurring, at the start.
 	m.sel = 1
 	press(t, m, "*")
-	m.input.SetValue("")
-	typeText(t, m, "start")
-	press(t, m, "enter")
+	typeText(t, m, "s")
+	press(t, m, "ctrl+s")
 	mt, _ := st.Meeting("RDIR")
 	if len(mt.Standing) != 1 || mt.Standing[0].Place != "start" || mt.Standing[0].Title != "Point RH" {
 		t.Fatalf("standing %+v (%s)", mt.Standing, m.status)
@@ -130,7 +130,7 @@ func TestStandingFromTUI(t *testing.T) {
 	}
 	press(t, m, "c")
 	typeText(t, m, "Repas")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	if len(m.standing) != 2 || m.standing[1].Key != "repas" || m.standing[1].Place != "end" {
 		t.Fatalf("added %+v", m.standing)
 	}
@@ -215,7 +215,7 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg, tuikit.DoneMsg, tuikit.CancelMsg:
 		return "oj"
 	}
 	return "tea.other"
@@ -233,7 +233,7 @@ func press(t *testing.T, m *model, s string) {
 		k = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
 	case "tab":
 		k = tea.KeyPressMsg{Code: tea.KeyTab}
-	case "ctrl+j", "ctrl+k":
+	case "ctrl+j", "ctrl+k", "ctrl+s":
 		k = tea.KeyPressMsg{Code: rune(s[5]), Mod: tea.ModCtrl}
 	default:
 		k = tea.KeyPressMsg{Code: []rune(s)[0], Text: s}
@@ -303,7 +303,7 @@ func TestMeetingsAndAgenda(t *testing.T) {
 	// A new item through the prompt.
 	press(t, m, "n")
 	typeText(t, m, "Divers")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	if len(m.agenda.Items) != 4 || m.agenda.Items[3].Item.Title != "Divers" {
 		t.Fatalf("new item: %+v", m.agenda.Items)
 	}
@@ -311,7 +311,7 @@ func TestMeetingsAndAgenda(t *testing.T) {
 	m.sel = 3
 	press(t, m, "x")
 	typeText(t, m, "doublon")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	if it, _ := st.Item("RDIR-4"); it.State != "dropped" || it.Reason != "doublon" {
 		t.Fatalf("drop: %+v", it)
 	}
@@ -396,16 +396,20 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	}
 	press(t, m, "D")
 	typeText(t, m, "Approuvé")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	press(t, m, "c")
-	typeText(t, m, "Envoyer au rectorat|Marie|2026-10-20")
-	press(t, m, "enter")
+	typeText(t, m, "Envoyer au rectorat")
+	press(t, m, "tab")
+	typeText(t, m, "Marie")
+	press(t, m, "tab")
+	typeText(t, m, "2026-10-20")
+	press(t, m, "ctrl+s")
 	press(t, m, "E")
 	typeText(t, m, "Présenté")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	it, _ := st.Item("RDIR-1")
 	o := it.History[0].Outcome
-	if o.Decision != "Approuvé" || o.Summary != "Présenté" || len(o.Actions) != 1 || o.Status != "approved" {
+	if o.Decision != "Approuvé" || o.Summary != "Présenté" || len(o.Actions) != 1 || o.Actions[0].Who != "Marie" || o.Actions[0].Due != "2026-10-20" || o.Status != "approved" {
 		t.Fatalf("outcome %+v", o)
 	}
 	press(t, m, "n")
@@ -420,7 +424,7 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	press(t, m, "H")
 	press(t, m, "esc")
 	press(t, m, "m")
-	typeText(t, m, "yes")
+	press(t, m, "o")
 	press(t, m, "enter")
 	if m.agenda.Sitting.State != "minuted" {
 		t.Fatalf("minute: %s (%s)", m.agenda.Sitting.State, m.status)
@@ -689,10 +693,12 @@ func TestEscBackQQuits(t *testing.T) {
 	press(t, m, "enter")
 	press(t, m, "n")
 	press(t, m, "q")
-	if m.prompt == pNone || m.input.Value() != "q" {
-		t.Fatalf("q in a prompt: prompt %d, value %q", m.prompt, m.input.Value())
+	if m.prompt == pNone || !m.modal.Open() {
+		t.Fatalf("q in a prompt: prompt %d", m.prompt)
 	}
 	press(t, m, "esc")
+	press(t, m, "o") // abandon the typed text
+	press(t, m, "enter")
 	_, cmd = m.Update(tea.KeyPressMsg{Code: 'q', Text: "q"})
 	if cmd == nil {
 		t.Fatal("q should quit")
@@ -744,7 +750,7 @@ func TestSeveralSpheres(t *testing.T) {
 	}
 	press(t, m, "n")
 	typeText(t, m, "Divers")
-	press(t, m, "enter")
+	press(t, m, "ctrl+s")
 	if _, err := pro.Item("RDIR-4"); err != nil {
 		t.Fatalf("item added in pro: %v", err)
 	}

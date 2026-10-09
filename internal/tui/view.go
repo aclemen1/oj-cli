@@ -9,10 +9,11 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/aclemen1/oj-cli/internal/store"
+	"github.com/aclemen1/tuikit"
 )
 
 func (m *model) View() tea.View {
-	v := tea.NewView(m.render())
+	v := tea.NewView(tuikit.Overlay(m.render(), m.modal, m.w, m.h))
 	v.AltScreen = true
 	return v
 }
@@ -136,7 +137,7 @@ func (m *model) renderMain() ([]string, string) {
 	}
 	foot := help
 	switch {
-	case m.prompt != pNone:
+	case m.prompt == pFilter:
 		foot = m.input.View()
 	case m.status != "" && m.statusErr:
 		foot = sErr.Render(m.status)

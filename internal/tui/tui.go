@@ -7,12 +7,15 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
 	"time"
 
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
+
+	"github.com/aclemen1/tuikit"
 
 	"github.com/aclemen1/oj-cli/internal/actions"
 	"github.com/aclemen1/oj-cli/internal/spec"
@@ -173,6 +176,9 @@ type model struct {
 	refs map[string]refEntry
 	// cited caches the sections of the cited block, by item id.
 	cited map[string]citedEntry
+
+	// modal is the open input (tuikit); prompt and target say what it answers.
+	modal *tuikit.Modal
 
 	// stamp is the stores' fingerprint at the last look; a change reloads the view.
 	stamp string
@@ -436,8 +442,8 @@ type (
 		status string
 		err    error
 	}
-	tickMsg struct{}
-	refMsg  struct{ shown store.RefShown }
+	tickMsg  struct{}
+	refMsg   struct{ shown store.RefShown }
 	citedMsg struct {
 		id       string
 		sections []store.CitedSection
@@ -621,17 +627,44 @@ func (m *model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isE
 
 // Update handles a message, then keeps the state for the next start.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// The modal's own messages (cursor, scroll) reach it; oj's own and keys go through update.
+	var modalCmd tea.Cmd
+	if t := reflect.TypeOf(msg); m.modal.Open() && t != nil && t.PkgPath() != ownPkg {
+		switch msg.(type) {
+		case tea.KeyPressMsg, tea.PasteMsg, tea.WindowSizeMsg, tuikit.DoneMsg, tuikit.CancelMsg:
+		default:
+			modalCmd = m.modal.Update(msg)
+		}
+	}
 	next, cmd := m.update(msg)
+	if modalCmd != nil {
+		cmd = tea.Batch(modalCmd, cmd)
+	}
 	m.persist()
 	return next, cmd
 }
 
 func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case tuikit.DoneMsg:
+		return m, m.modalDone(msg)
+	case tuikit.CancelMsg:
+		m.prompt, m.modal = pNone, nil
+		return m, nil
+	case tea.KeyPressMsg, tea.PasteMsg:
+		// The modal takes every key: no shortcut of the TUI while typing.
+		if m.modal.Open() {
+			return m, m.modal.Update(msg)
+		}
+	}
+	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.w, m.h = msg.Width, msg.Height
 		if m.w < 20 || m.h < 6 {
 			m.w, m.h = max(m.w, 80), max(m.h, 24)
+		}
+		if m.modal.Open() {
+			m.modal.SetSize(m.w, m.h)
 		}
 		m.input.SetWidth(max(10, m.w-30))
 	case tea.BackgroundColorMsg:
@@ -944,6 +977,9 @@ func (m *model) keySittings(k tea.KeyPressMsg) tea.Cmd {
 }
 
 func (m *model) ask(p prompt, label, target, value string) tea.Cmd {
+	if p != pFilter {
+		return m.openModal(p, target, value)
+	}
 	m.prompt, m.target = p, target
 	m.input.Reset()
 	m.input.Prompt = label + " › "
