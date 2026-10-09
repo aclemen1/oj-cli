@@ -82,6 +82,7 @@ const (
 	pNewStanding
 	pFilter
 	pNote
+	pCancelSitting
 )
 
 // row is a line of the agenda: an item on it, a proposal, a dropped item, or
@@ -1096,6 +1097,14 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			return nil
 		}
 		return m.do(m.tr("note ajoutée à ", "note added to ")+target, func() error { _, err := m.st.AddNote(target, v); return err })
+	case pCancelSitting:
+		return func() tea.Msg {
+			ch, err := m.st.CancelSitting(target, v)
+			if err != nil {
+				return doneMsg{err: err}
+			}
+			return doneMsg{status: fmt.Sprintf(m.tr("%s annulée ; %d point(s) passé(s) à la séance suivante", "%s cancelled; %d item(s) moved to the next sitting"), target, len(ch.Moved))}
+		}
 	case pFilter:
 		m.query = v
 		m.sel, m.selM, m.selA, m.selO = 0, 0, 0, 0
@@ -1288,6 +1297,11 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "F":
 		return m.do(sit.ID+" reopened", func() error { _, err := m.st.ReopenSitting(sit.ID); return err })
+	case "X":
+		if sit.State == "planned" || sit.State == "frozen" {
+			return m.ask(pCancelSitting, "", sit.ID, "")
+		}
+		m.setStatus(m.tr("seule une séance planifiée ou figée s'annule", "only a planned or frozen sitting can be cancelled"), true)
 	case "H":
 		return m.do(sit.ID+" held", func() error { _, err := m.st.HoldSitting(sit.ID, nil, nil); return err })
 	case "m":

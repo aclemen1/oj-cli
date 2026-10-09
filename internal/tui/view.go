@@ -292,9 +292,9 @@ func (m *model) agendaPairs() []string {
 	if m.agenda != nil {
 		switch m.agenda.Sitting.State {
 		case "planned":
-			p = append(p, "c", "new", "f", "freeze", "L", "live", "P", "preview")
+			p = append(p, "c", "new", "f", "freeze", "L", "live", "P", "preview", "X", "cancel")
 		case "frozen":
-			p = append(p, "L", "live", "H", "hold", "P", "preview", "F", "reopen")
+			p = append(p, "L", "live", "H", "hold", "P", "preview", "F", "reopen", "X", "cancel")
 		case "held":
 			p = append(p, "L", "live")
 			if m.st.CanAsk(m.agenda.Sitting.Meeting, "outcomes") {

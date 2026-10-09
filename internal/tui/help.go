@@ -217,11 +217,13 @@ func (m *model) helpAgenda(b *helpBuilder) {
 		b.key("c", m.tr("nouveau point (retenu)", "new item (accepted)"))
 		b.key("f", m.tr("figer l'ordre du jour", "freeze the agenda"))
 		b.key("H", m.tr("marquer la séance tenue", "mark the sitting held"))
+		b.key("X", m.tr("annuler la séance (elle n'a pas lieu) ; ses points passent à la suivante", "cancel the sitting (it does not take place); its items move to the next"))
 		b.key("L", m.tr("séance en direct", "live sitting"))
 	case "frozen":
 		b.key("L", m.tr("séance en direct", "live sitting"))
 		b.key("H", m.tr("marquer la séance tenue", "mark the sitting held"))
 		b.key("F", m.tr("rouvrir l'ordre du jour", "reopen the agenda"))
+		b.key("X", m.tr("annuler la séance (elle n'a pas lieu) ; ses points passent à la suivante", "cancel the sitting (it does not take place); its items move to the next"))
 	case "held":
 		b.key("L", m.tr("saisir les issues en direct", "record outcomes live"))
 		m.helpAsk(b)

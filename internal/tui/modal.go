@@ -50,6 +50,10 @@ func (m *model) openModal(p prompt, target, value string) tea.Cmd {
 		title = target + m.tr(" récurrent", " recurring")
 		content = tuikit.NewForm("place", tuikit.Choice("place", m.tr("Place dans l'ordre du jour", "Place on the agenda"),
 			m.tr("début", "start"), m.tr("fin", "end")).Default(m.tr("fin", "end")))
+	case pCancelSitting:
+		title = m.tr("Annuler la séance ", "Cancel the sitting ") + target
+		content = tuikit.NewForm("cancel", tuikit.TextArea("text", m.tr("Raison", "Reason")).
+			Help(m.tr("facultative ; les points passent à la prochaine séance planifiée ; U rétablit la séance", "optional; the items move to the next planned sitting; U restores the sitting")))
 	case pNote:
 		title, content = m.tr("Note sur ", "Note on ")+target, tuikit.NewEditor("text", m.tr("Note", "Note"), value)
 	case pNewStanding:

@@ -444,7 +444,7 @@ view, except in a text field, where it is typed.
 | `x` | drop | | |
 | `o`, `O` | go to the item's ref; create one | go to the ref | go to the ref |
 | `space`, `e` | | timer | done / open; done |
-| `H`, `L`, `F` | hold; live; reopen the agenda | hold | |
+| `H`, `L`, `F`, `X` | hold; live; reopen the agenda; cancel the sitting (its items move to the next) | hold | |
 | `R` | ask the meeting's agent for outcomes | | |
 | `g r` | recurring items (`c` new, `p` start/end, `x` stop) | | |
 | `ctrl+j ctrl+k` | move the item down / up | | |

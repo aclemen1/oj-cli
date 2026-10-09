@@ -966,3 +966,27 @@ func TestSelectAtStart(t *testing.T) {
 		t.Fatalf("reload args %q", got)
 	}
 }
+
+func TestCancelSittingInTUI(t *testing.T) {
+	m, st, _ := setup(t)
+	press(t, m, "enter")
+	if m.agenda.Sitting.ID != "RDIR-2026-10-08" {
+		t.Fatalf("sitting %s", m.agenda.Sitting.ID)
+	}
+	press(t, m, "X")
+	if !m.modal.Open() || m.prompt != pCancelSitting {
+		t.Fatal("X opens the cancel modal")
+	}
+	typeText(t, m, "pas de quorum")
+	press(t, m, "ctrl+s")
+	sit, _, err := st.Sitting("RDIR-2026-10-08")
+	if err != nil || sit.State != "cancelled" || sit.Reason != "pas de quorum" {
+		t.Fatalf("cancelled: %+v %v", sit, err)
+	}
+	if it, _ := st.Item("RDIR-1"); it.Sitting != "RDIR-2026-10-15" {
+		t.Fatalf("item moved to %s", it.Sitting)
+	}
+	if !strings.Contains(m.status, "2") {
+		t.Fatalf("status %q", m.status)
+	}
+}
