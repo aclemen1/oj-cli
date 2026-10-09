@@ -37,7 +37,13 @@ func init() {
 				names = append(names, st.Sphere)
 			}
 			m.statePath = statePath(names)
-			_, err = tea.NewProgram(m).Run()
+			m.exe = self()
+			m.exeStamp, m.build = binStamp(m.exe), buildLabel(m.exe)
+			if v := os.Getenv(reloadedEnv); v != "" {
+				os.Unsetenv(reloadedEnv)
+				m.setStatus(m.tr("rechargé ", "reloaded ")+v, false)
+			}
+			err = run(m)
 			return spec.Streamed{}, err
 		},
 	})
@@ -168,6 +174,11 @@ type model struct {
 	// stamp is the stores' fingerprint at the last look; a change reloads the view.
 	stamp string
 
+	// exe is the running binary and exeStamp its mtime and inode at start; build
+	// labels it. newBin: a rebuild waits for the TUI to be idle; reexec: quit to run it.
+	exe, exeStamp, build    string
+	newBin, reexec, editing bool
+
 	// standing lists the recurring items of the open meeting.
 	standing []store.Standing
 	selR     int
@@ -273,15 +284,15 @@ func (m *model) keyStanding(k tea.KeyPressMsg) tea.Cmd {
 // (office, agents, the calendar sync); 0 turns the watch off.
 var watchEvery = 2 * time.Second
 
-type watchMsg struct{ stamp string }
+type watchMsg struct{ stamp, bin string }
 
 // watch looks at the stores' fingerprint after watchEvery.
 func (m *model) watch() tea.Cmd {
 	if watchEvery == 0 {
 		return nil
 	}
-	stores := m.stores
-	return tea.Tick(watchEvery, func(time.Time) tea.Msg { return watchMsg{stamps(stores)} })
+	stores, exe := m.stores, m.exe
+	return tea.Tick(watchEvery, func(time.Time) tea.Msg { return watchMsg{stamps(stores), binStamp(exe)} })
 }
 
 func stamps(stores []*store.Store) string {
@@ -701,6 +712,7 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.actions = msg.rows
 		m.selA = min(m.selA, max(0, len(m.actions)-1))
 	case doneMsg:
+		m.editing = false
 		if msg.err != nil {
 			m.setStatus(msg.err.Error(), true)
 		} else if w := m.warnings.take(); len(w) > 0 {
@@ -709,7 +721,16 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setStatus(msg.status, false)
 		}
 		return m, m.reload()
+	case reloadMsg:
+		m.newBin = true
+		return m, m.maybeReload()
 	case watchMsg:
+		if msg.bin != "" && m.exeStamp != "" && msg.bin != m.exeStamp {
+			m.newBin = true
+		}
+		if cmd := m.maybeReload(); cmd != nil {
+			return m, cmd
+		}
 		// A change waits while the user types or picks a sitting: the stamp
 		// is kept, so the next look finds it again.
 		if m.stamp == "" || msg.stamp == m.stamp {
@@ -1293,6 +1314,7 @@ func (m *model) openEditor(id string, appendAtEnd bool) tea.Cmd {
 	}
 	argv := editorArgs(os.Getenv("EDITOR"), path, appendAtEnd)
 	cmd := exec.Command(argv[0], argv[1:]...)
+	m.editing = true
 	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		if err != nil {
 			return doneMsg{err: err}

@@ -429,6 +429,14 @@ files (count, size, latest change) and reloads the view when it changed,
 keeping the selection. A change waits while the user types or picks a
 sitting.
 
+The TUI also follows its own binary (mtime and inode, at the same pace).
+After a rebuild, an idle TUI saves its state and replaces itself with the
+new binary (exec), which restores the view, the selection and the filter
+and shows « rechargé v… ». While the user types, picks a sitting or edits
+an item, a « nouvelle version » badge waits in the header and the reload
+happens once idle. SIGUSR1 asks for the same reload, under the same rules.
+The header shows the version and the build time of the running binary.
+
 A help panel, open by default (`?` hides it), says where the user is and
 what can be done next: in the agenda, the sitting on its cycle (planned →
 frozen → held → minuted) with what that state means and the next step, the

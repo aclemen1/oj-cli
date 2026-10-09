@@ -41,6 +41,12 @@ func (m *model) render() string {
 	mainW, mainH := m.w, m.h
 	m.w, m.h = w, h
 	head := sTitle.Render("oj") + " " + m.headSphere()
+	if m.build != "" {
+		head += " " + sMuted.Render(m.build)
+	}
+	if m.newBin {
+		head += " " + sWarn.Render(m.tr("● nouvelle version", "● new version"))
+	}
 	var body string
 	switch {
 	case panel == nil:

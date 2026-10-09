@@ -163,7 +163,7 @@ func TestWatchReloadsOnOutsideChange(t *testing.T) {
 		t.Fatalf("agenda %d items", len(m.agenda.Items))
 	}
 	send := func() {
-		_, cmd := m.Update(watchMsg{stamps(m.stores)})
+		_, cmd := m.Update(watchMsg{stamp: stamps(m.stores)})
 		drive(t, m, cmd)
 	}
 	send() // first look: remembers the stamp
@@ -766,5 +766,49 @@ func TestEditorArgs(t *testing.T) {
 		if got := strings.Join(editorArgs(c.editor, "f.md", c.add), "|"); got != c.want {
 			t.Errorf("editorArgs(%q, %v) = %q, want %q", c.editor, c.add, got, c.want)
 		}
+	}
+}
+
+func TestReloadAfterRebuild(t *testing.T) {
+	m, _, _ := setup(t)
+	bin := filepath.Join(t.TempDir(), "oj")
+	os.WriteFile(bin, []byte("v1"), 0o755)
+	m.exe, m.exeStamp = bin, binStamp(bin)
+	quits := func(cmd tea.Cmd) bool {
+		if cmd == nil {
+			return false
+		}
+		_, ok := cmd().(tea.QuitMsg)
+		return ok
+	}
+	if _, cmd := m.Update(watchMsg{bin: binStamp(bin)}); quits(cmd) || m.newBin {
+		t.Fatal("same binary: no reload")
+	}
+	// A rebuild replaces the file (new inode) while the user types: a badge, no reload.
+	press(t, m, "enter")
+	press(t, m, "n")
+	os.Remove(bin)
+	os.WriteFile(bin, []byte("v2"), 0o755)
+	if _, cmd := m.Update(watchMsg{bin: binStamp(bin)}); quits(cmd) || !m.newBin || m.reexec {
+		t.Fatal("no reload during a prompt")
+	}
+	if !strings.Contains(m.render(), "nouvelle version") && !strings.Contains(m.render(), "new version") {
+		t.Fatal("badge missing")
+	}
+	press(t, m, "esc")
+	if _, cmd := m.Update(watchMsg{bin: binStamp(bin)}); !quits(cmd) || !m.reexec {
+		t.Fatal("reload once idle")
+	}
+	// SIGUSR1 follows the same rules.
+	m2, _, _ := setup(t)
+	m2.exe = bin
+	press(t, m2, "enter")
+	press(t, m2, "n")
+	if _, cmd := m2.Update(reloadMsg{}); quits(cmd) {
+		t.Fatal("SIGUSR1 waits for the prompt")
+	}
+	press(t, m2, "esc")
+	if _, cmd := m2.Update(watchMsg{}); !quits(cmd) {
+		t.Fatal("SIGUSR1 reloads once idle")
 	}
 }
