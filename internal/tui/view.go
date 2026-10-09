@@ -41,6 +41,9 @@ func (m *model) render() string {
 	mainW, mainH := m.w, m.h
 	m.w, m.h = w, h
 	head := sTitle.Render("oj") + " " + m.headSphere()
+	if m.query != "" {
+		head += " " + sWarn.Render("/"+m.query)
+	}
 	if m.build != "" {
 		head += " " + sMuted.Render(m.build)
 	}
@@ -110,26 +113,26 @@ func (m *model) renderMain() ([]string, string) {
 	}
 	switch m.view {
 	case vMeetings:
-		lines, help = m.renderMeetings(), helpLine(m.filterPairs("enter", "agenda", "S", "all sittings", "A", "actions", "R", "refresh", "q", "quit")...)
+		lines, help = m.renderMeetings(), helpLine(m.filterPairs("enter", "agenda", "/", "filter", "1/2/3", "meetings/actions/sittings", "r", "refresh", "q", "quit")...)
 	case vAgenda:
 		lines, help = m.renderAgenda(), helpLine(m.agendaPairs()...)
 	case vSittings:
-		pairs := []string{"enter", "open", "j/k", "move", "esc", "back"}
+		pairs := []string{"enter", "open", "j/k", "move", "/", "filter", "esc", "back"}
 		if m.ovScope == "" {
 			pairs = m.filterPairs(pairs...)
 		}
 		lines, help = m.renderOverview(), helpLine(pairs...)
 	case vStanding:
-		lines, help = m.renderStanding(), helpLine("n", "new", "s", "start/end", "x", "stop", "j/k", "move", "esc", "agenda")
+		lines, help = m.renderStanding(), helpLine("c", "new", "p", "start/end", "x", "stop", "j/k", "move", "esc", "agenda")
 	case vDoc:
-		lines, help = m.renderDoc(), helpLine("j/k", "scroll", "G", "ask outcomes", "esc", "agenda")
+		lines, help = m.renderDoc(), helpLine("j/k", "scroll", "R", "ask outcomes", "gg/G", "top/end", "esc", "agenda")
 	case vItem:
-		lines, help = m.renderItem(), helpLine("e", "edit", "N", "add note", "j/k", "scroll", "esc", "back")
+		lines, help = m.renderItem(), helpLine("E", "edit", "N", "add note", "o", "open ref", "j/k", "scroll", "esc", "back")
 	case vLive:
-		lines, help = m.renderLive(), helpLine("space", "timer", "n/p", "next/previous", "s", "summary", "D", "decision",
-			"t", "action", "-", "defer", "h", "hold", "esc", "agenda")
+		lines, help = m.renderLive(), helpLine("space", "timer", "n/p", "next/previous", "E", "summary", "D", "decision",
+			"c", "action", "z", "defer", "H", "hold", "J/K", "scroll pane", "esc", "agenda")
 	case vActions:
-		lines, help = m.renderActions(), helpLine(m.filterPairs("space", "done/open", "o", "show done", "esc", "back")...)
+		lines, help = m.renderActions(), helpLine(m.filterPairs("space", "done/open", "e", "done", "enter", "item", "o", "open ref", "f", "show done", "/", "filter", "esc", "back")...)
 	}
 	foot := help
 	switch {
@@ -265,13 +268,13 @@ func (m *model) renderAgenda() []string {
 		rows = append(rows, line)
 	}
 	if len(m.agenda.Items) == 0 {
-		rows = append([]string{sMuted.Render("  (no item on the agenda — n adds one)")}, rows...)
+		rows = append([]string{sMuted.Render("  (no item on the agenda — c adds one)")}, rows...)
 	}
 	// The list keeps at least half of the room when it needs it; the pane takes the rest.
 	room := m.h - 2 - len(out)
 	listH := max(3, min(len(rows), room/2))
 	var pane []string
-	if r := m.current(); r != nil {
+	if r := m.current(); r != nil && !m.paneOff {
 		pane = m.pane(r.item, r.outcome, room-listH-1)
 	}
 	rows = window(rows, m.sel+2, listH)
@@ -288,13 +291,13 @@ func (m *model) agendaPairs() []string {
 	if m.agenda != nil {
 		switch m.agenda.Sitting.State {
 		case "planned":
-			p = append(p, "n", "new", "f", "freeze", "l", "live", "P", "preview")
+			p = append(p, "c", "new", "f", "freeze", "L", "live", "P", "preview")
 		case "frozen":
-			p = append(p, "l", "live", "h", "hold", "P", "preview", "r", "reopen")
+			p = append(p, "L", "live", "H", "hold", "P", "preview", "F", "reopen")
 		case "held":
-			p = append(p, "l", "live")
+			p = append(p, "L", "live")
 			if m.st.CanAsk(m.agenda.Sitting.Meeting, "outcomes") {
-				p = append(p, "G", "ask outcomes")
+				p = append(p, "R", "ask outcomes")
 			}
 			p = append(p, "P", "minutes preview", "m", "approve minutes")
 		case "minuted":
@@ -304,15 +307,15 @@ func (m *model) agendaPairs() []string {
 	if r := m.current(); r != nil && r.proposed {
 		p = append(p, "a", "accept")
 	}
-	p = append(p, "d", "defer", "x", "drop")
+	p = append(p, "z", "defer", "x", "drop")
 	if u := m.undoLabel(); u != "" {
 		p = append(p, "u", u)
 	}
 	if u := undoSittingLabel(m.agenda); u != "" {
 		p = append(p, "U", u)
 	}
-	p = append(p, "*", "recurring", "R", "recurring list", "e", "edit", "N", "add note", "M", "move to", "J/K", "order", "+/-", "5 min",
-		"o", "open ref", "c", "create ref", "A", "actions", "S", "sittings", "[/]", "sitting", "esc", "back")
+	p = append(p, "*", "recurring", "g r", "recurring list", "E", "edit", "N", "add note", "M", "move to", "ctrl+j/k", "order", "+/-", "5 min",
+		"o", "open ref", "O", "create ref", "J/K", "scroll pane", "tab", "pane", "/", "filter", "2/3", "actions/sittings", "[/]", "sitting", "esc", "back")
 	return p
 }
 
@@ -337,15 +340,16 @@ func (m *model) renderDoc() []string {
 		return append(out, sMuted.Render("  loading…"))
 	}
 	body := markdown(m.doc.text, max(20, m.w-4))
-	return append(out, body[min(m.scroll, max(0, len(body)-1)):]...)
+	m.scroll = min(m.scroll, max(0, len(body)-(m.h-4)))
+	return append(out, body[m.scroll:]...)
 }
 
 // renderStanding lists the recurring items of the open meeting.
 func (m *model) renderStanding() []string {
 	out := []string{sBold.Render(m.tr("Points récurrents de ", "Recurring items of ") + m.meeting), ""}
 	if len(m.standing) == 0 {
-		return append(out, sMuted.Render(m.tr("  Aucun. n en ajoute un ; * dans l'ordre du jour rend un point récurrent.",
-			"  None. n adds one; * in the agenda makes an item recurring.")))
+		return append(out, sMuted.Render(m.tr("  Aucun. c en ajoute un ; * dans l'ordre du jour rend un point récurrent.",
+			"  None. c adds one; * in the agenda makes an item recurring.")))
 	}
 	for i, s := range m.standing {
 		place := m.tr("fin", "end")
@@ -439,8 +443,12 @@ func (m *model) pane(it *store.Item, o *store.Outcome, maxLines int) []string {
 			lines = append(lines, markdown(e.shown.Text, w)...)
 		}
 	}
+	if m.paneScroll > 0 {
+		m.paneScroll = min(m.paneScroll, max(0, len(lines)-maxLines))
+		lines = append(lines[:1], lines[1+m.paneScroll:]...)
+	}
 	if len(lines) > maxLines {
-		lines = append(lines[:maxLines-1], sMuted.Render("          … enter shows the whole item"))
+		lines = append(lines[:maxLines-1], sMuted.Render("          … J K, enter shows the whole item"))
 	}
 	return lines
 }
@@ -520,7 +528,8 @@ func (m *model) renderItem() []string {
 	for _, l := range it.Log {
 		lines = append(lines, sMuted.Render(fmt.Sprintf("  %s  %s  %s", l.At, l.By, l.What)))
 	}
-	return lines[min(m.scroll, max(0, len(lines)-1)):]
+	m.scroll = min(m.scroll, max(0, len(lines)-(m.h-2)))
+	return lines[m.scroll:]
 }
 
 func clock(d time.Duration) string {
@@ -568,7 +577,9 @@ func (m *model) renderLive() []string {
 	out = append(out, "", fmt.Sprintf("  elapsed %s of %s  %s", sBold.Render(clock(total)), clock(planned), state), "")
 	if m.live.cur < len(m.agenda.Items) {
 		ai := m.agenda.Items[m.live.cur]
-		out = append(out, m.pane(ai.Item, ai.Outcome, m.h-2-len(out))...)
+		if !m.paneOff {
+			out = append(out, m.pane(ai.Item, ai.Outcome, m.h-2-len(out))...)
+		}
 	}
 	return out
 }

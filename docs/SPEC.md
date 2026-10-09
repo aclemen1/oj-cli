@@ -419,9 +419,35 @@ oj import gtasks --sphere pro --meeting RDIR --from tasks.json [--dry-run]
 
 ## 11. TUI
 
-`oj tui`, Bubble Tea v2, keys aligned with the TUIs of `office` and
-`routine`. `esc` goes back to the previous view and never quits; `q` quits
-from any view, except in a text field, where it is typed.
+`oj tui`, Bubble Tea v2, keys of the ecosystem's common convention.
+`esc` goes back to the previous view and never quits; `q` quits from any
+view, except in a text field, where it is typed.
+
+| Keys | Everywhere |
+|---|---|
+| `j k`, `gg G` | next / previous line; top, end |
+| `enter l`, `esc h` | open; back (esc first clears the filter) |
+| `/` | filter the list (meetings, agenda, actions, sittings) |
+| `tab`, `J K` | show or hide the item pane; scroll it |
+| `1 2 3` | meetings, actions, every sitting |
+| `r`, `?`, `q` | reload; help; quit |
+
+| Keys | Agenda | Live | Actions |
+|---|---|---|---|
+| `c` | new item (`n`) | new action | |
+| `E`, `N` | edit the item; add to its notes | summary | |
+| `z` | defer (`d`) | not reached (`-`) | |
+| `x` | drop | | |
+| `o`, `O` | go to the item's ref; create one | go to the ref | go to the ref |
+| `space`, `e` | | timer | done / open; done |
+| `H`, `L`, `F` | hold; live; reopen the agenda | hold | |
+| `R` | ask the meeting's agent for outcomes | | |
+| `g r` | recurring items (`c` new, `p` start/end, `x` stop) | | |
+| `ctrl+j ctrl+k` | move the item down / up | | |
+| `f`, `m`, `P`, `M`, `*`, `+ -`, `u U`, `[ ]`, `a` | freeze, minutes, preview, move to, make recurring, ±5 min, take back, sittings, accept | | `f`: show done |
+
+Keys in parentheses are kept from before the convention. In the live
+view, `space` stays the timer: there is nothing to mark done there.
 
 The TUI follows changes made by other processes (office, agents, the
 calendar sync): every 2 seconds it compares a fingerprint of the stores'

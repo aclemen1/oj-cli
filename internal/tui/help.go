@@ -102,9 +102,15 @@ func (m *model) helpPanel(w int) []string {
 	case vDoc:
 		m.helpDoc(b)
 	}
-	b.title(m.tr("AIDE", "HELP"))
+	b.title(m.tr("TOUCHES COMMUNES", "COMMON KEYS"))
+	b.key("j k", m.tr("ligne suivante / précédente ; gg G : début, fin", "next / previous line; gg G: top, end"))
+	b.key("enter l", m.tr("ouvrir", "open"))
+	b.key("esc h", m.tr("revenir à la vue précédente (esc vide d'abord le filtre)", "back to the previous view (esc clears the filter first)"))
+	b.key("/", m.tr("filtrer la liste", "filter the list"))
+	b.key("tab", m.tr("afficher ou masquer le panneau du point ; J K le font défiler", "show or hide the item pane; J K scroll it"))
+	b.key("1 2 3", m.tr("séries, actions, toutes les séances", "meetings, actions, every sitting"))
+	b.key("r", m.tr("relire les données", "reload the data"))
 	b.key("?", m.tr("masquer ou afficher cette aide", "hide or show this help"))
-	b.key("esc", m.tr("revenir à la vue précédente", "back to the previous view"))
 	b.key("q", m.tr("quitter (l'état est gardé pour le prochain lancement)", "quit (the state is kept for the next start)"))
 	return b.lines
 }
@@ -121,7 +127,6 @@ func (m *model) helpMeetings(b *helpBuilder) {
 	b.key("enter", m.tr("ouvrir l'ordre du jour de la prochaine occurrence", "open the agenda of the next sitting"))
 	b.key("S", m.tr("toutes les occurrences, avec leurs points", "every sitting, with its items"))
 	b.key("A", m.tr("les actions décidées en séance", "actions decided in sittings"))
-	b.key("R", m.tr("rafraîchir", "refresh"))
 	m.helpFilter(b)
 }
 
@@ -152,12 +157,12 @@ func (m *model) sittingStateText(s *store.Sitting, a *store.Agenda) (what, next 
 	case "frozen":
 		what = m.tr("Ordre du jour arrêté et rendu. On n'y ajoute plus rien.",
 			"The agenda is final and rendered. Nothing more goes in.")
-		next = m.tr("Le jour de la séance : l (en direct) pour noter les issues, puis h (tenue). Pour corriger : r (rouvrir).",
-			"On the day: l (live) to note outcomes, then h (held). To correct it: r (reopen).")
+		next = m.tr("Le jour de la séance : L (en direct) pour noter les issues, puis H (tenue). Pour corriger : F (rouvrir).",
+			"On the day: L (live) to note outcomes, then H (held). To correct it: F (reopen).")
 	case "held":
 		what = m.tr("La séance a eu lieu. On finit de saisir les issues.", "The sitting took place. Finish the outcomes.")
-		next = m.tr("Compléter les issues (l, puis s, D, t, ou G pour les demander à l'agent de la séance), relire le projet de PV (P), puis l'approuver (m). Les issues ✎ d'un agent sont des brouillons.",
-			"Complete the outcomes (l, then s, D, t, or G to ask the meeting's agent), review the draft minutes (P), then approve them (m). Outcomes ✎ by an agent are drafts.")
+		next = m.tr("Compléter les issues (L, puis E, D, c, ou R pour les demander à l'agent de la séance), relire le projet de PV (P), puis l'approuver (m). Les issues ✎ d'un agent sont des brouillons.",
+			"Complete the outcomes (L, then E, D, c, or R to ask the meeting's agent), review the draft minutes (P), then approve them (m). Outcomes ✎ by an agent are drafts.")
 	case "minuted":
 		what = m.tr("PV approuvé et rendu. Les points traités sont faits ; les autres sont reportés à la séance suivante, sauf les points récurrents, retirés.",
 			"Minutes approved and rendered. Items dealt with are done; the others moved to the next sitting, except recurring items, dropped.")
@@ -209,16 +214,16 @@ func (m *model) helpAgenda(b *helpBuilder) {
 	b.title(m.tr("SÉANCE", "SITTING"))
 	switch s.State {
 	case "planned":
-		b.key("n", m.tr("nouveau point (retenu)", "new item (accepted)"))
+		b.key("c", m.tr("nouveau point (retenu)", "new item (accepted)"))
 		b.key("f", m.tr("figer l'ordre du jour", "freeze the agenda"))
-		b.key("h", m.tr("marquer la séance tenue", "mark the sitting held"))
-		b.key("l", m.tr("séance en direct", "live sitting"))
+		b.key("H", m.tr("marquer la séance tenue", "mark the sitting held"))
+		b.key("L", m.tr("séance en direct", "live sitting"))
 	case "frozen":
-		b.key("l", m.tr("séance en direct", "live sitting"))
-		b.key("h", m.tr("marquer la séance tenue", "mark the sitting held"))
-		b.key("r", m.tr("rouvrir l'ordre du jour", "reopen the agenda"))
+		b.key("L", m.tr("séance en direct", "live sitting"))
+		b.key("H", m.tr("marquer la séance tenue", "mark the sitting held"))
+		b.key("F", m.tr("rouvrir l'ordre du jour", "reopen the agenda"))
 	case "held":
-		b.key("l", m.tr("saisir les issues en direct", "record outcomes live"))
+		b.key("L", m.tr("saisir les issues en direct", "record outcomes live"))
 		m.helpAsk(b)
 		b.key("m", m.tr("approuver le PV (taper yes)", "approve the minutes (type yes)"))
 	}
@@ -250,7 +255,7 @@ func (m *model) helpAgenda(b *helpBuilder) {
 			b.key("a", m.tr("le retenir", "accept it"))
 		}
 		if open && !r.away {
-			b.key("d", m.tr("le reporter à la séance suivante", "defer it to the next sitting"))
+			b.key("z", m.tr("le reporter à la séance suivante", "defer it to the next sitting"))
 			b.key("M", m.tr("le déplacer sur une autre séance (il garde son état)", "move it to another sitting (it keeps its state)"))
 			b.key("x", m.tr("le retirer (avec une raison)", "drop it (with a reason)"))
 		}
@@ -258,12 +263,12 @@ func (m *model) helpAgenda(b *helpBuilder) {
 			b.key("u", u)
 		}
 		if open && !r.proposed && !r.away && s.State == "planned" {
-			b.key("J/K", m.tr("le descendre / le monter", "move it down / up"))
+			b.key("^j ^k", m.tr("le descendre / le monter", "move it down / up"))
 		}
 		if open {
 			b.key("+/-", m.tr("5 minutes de plus / de moins", "5 minutes more / less"))
 		}
-		b.key("e", m.tr("corriger la fiche (titre, question, durée…)", "edit the item (title, question, duration…)"))
+		b.key("E", m.tr("corriger la fiche (titre, question, durée…)", "edit the item (title, question, duration…)"))
 		b.key("N", m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)"))
 		if r.item.StandingKey() == "" && !r.proposed {
 			b.key("*", m.tr("le rendre récurrent (il reviendra à chaque séance)", "make it recurring (it comes back at every sitting)"))
@@ -271,14 +276,14 @@ func (m *model) helpAgenda(b *helpBuilder) {
 		if ref := m.jumpRef(r.item); ref != "" {
 			b.key("o", m.tr("aller à "+ref, "go to "+ref))
 		} else if len(m.st.CreateSchemes()) > 0 {
-			b.key("c", m.tr("ouvrir un dossier pour ce point", "create a target (e.g. a dossier) for it"))
+			b.key("O", m.tr("ouvrir un dossier pour ce point", "create a target (e.g. a dossier) for it"))
 		}
 		b.key("enter", m.tr("voir le point en entier", "see the whole item"))
 	}
 	b.title(m.tr("NAVIGUER", "NAVIGATE"))
 	b.key("[ ]", m.tr("séance précédente / suivante", "previous / next sitting"))
 	b.key("S", m.tr("toutes les séances de cette série", "every sitting of this meeting"))
-	b.key("R", m.tr("les points récurrents de cette série", "the recurring items of this meeting"))
+	b.key("g r", m.tr("les points récurrents de cette série", "the recurring items of this meeting"))
 	b.key("A", m.tr("actions décidées", "decided actions"))
 	b.key("esc", m.tr("retour aux séances", "back to meetings"))
 }
@@ -292,25 +297,25 @@ func (m *model) helpLive(b *helpBuilder) {
 	b.text(m.tr("Séance en direct : un point à la fois, chronométré. Chaque issue s'enregistre aussitôt.",
 		"Live sitting: one item at a time, timed. Each outcome is saved at once."))
 	b.title(m.tr("ÉTAPE SUIVANTE", "NEXT STEP"))
-	b.text(m.tr("Pour chaque point : résumé (s), décision (D), actions (t), ou report (-). Puis n. À la fin : h (tenue).",
-		"For each item: summary (s), decision (D), actions (t), or defer (-). Then n. At the end: h (held)."))
+	b.text(m.tr("Pour chaque point : résumé (E), décision (D), actions (c), ou report (z). Puis n. À la fin : H (tenue).",
+		"For each item: summary (E), decision (D), actions (c), or defer (z). Then n. At the end: H (held)."))
 	b.title(m.tr("OPTIONS", "OPTIONS"))
 	b.key("space", m.tr("lancer / arrêter le chronomètre", "start / stop the timer"))
 	b.key("n p", m.tr("point suivant / précédent", "next / previous item"))
-	b.key("s", m.tr("résumé du point", "summary of the item"))
+	b.key("E", m.tr("résumé du point", "summary of the item"))
 	b.key("D", m.tr("décision", "decision"))
-	b.key("t", m.tr("action : quoi|qui|AAAA-MM-JJ|fait (fait : déjà faite)", "action: what|who|YYYY-MM-DD|done (done: already done)"))
+	b.key("c", m.tr("action : quoi|qui|AAAA-MM-JJ|fait (fait : déjà faite)", "action: what|who|YYYY-MM-DD|done (done: already done)"))
 	if it := m.liveItem(); it != nil && it.StandingKey() != "" {
-		b.key("-", m.tr("non traité : retiré au PV (point récurrent)", "not reached: dropped at the minutes (recurring item)"))
+		b.key("z", m.tr("non traité : retiré au PV (point récurrent)", "not reached: dropped at the minutes (recurring item)"))
 	} else {
-		b.key("-", m.tr("non traité : reporté au PV", "not reached: deferred at the minutes"))
+		b.key("z", m.tr("non traité : reporté au PV", "not reached: deferred at the minutes"))
 	}
 	if it := m.liveItem(); it != nil {
 		if ref := m.jumpRef(it); ref != "" {
 			b.key("o", m.tr("aller à "+ref, "go to "+ref))
 		}
 	}
-	b.key("h", m.tr("la séance est tenue", "the sitting is held"))
+	b.key("H", m.tr("la séance est tenue", "the sitting is held"))
 	b.key("esc", m.tr("retour à l'ordre du jour", "back to the agenda"))
 }
 
@@ -325,7 +330,7 @@ func (m *model) helpItem(b *helpBuilder) {
 			b.key("o", m.tr("aller à "+ref, "go to "+ref))
 		}
 	}
-	b.key("e", m.tr("corriger la fiche dans $EDITOR", "edit the item in $EDITOR"))
+	b.key("E", m.tr("corriger la fiche dans $EDITOR", "edit the item in $EDITOR"))
 	b.key("N", m.tr("ajouter aux notes (fin de fichier, en insertion)", "add to the notes (end of file, insert mode)"))
 	b.key("esc", m.tr("retour", "back"))
 }
@@ -336,7 +341,10 @@ func (m *model) helpActions(b *helpBuilder) {
 		"Actions decided in sittings, by due date; overdue ones in red."))
 	b.title(m.tr("OPTIONS", "OPTIONS"))
 	b.key("space", m.tr("marquer faite / à faire", "mark done / open"))
-	b.key("o", m.tr("montrer aussi les actions faites", "also show done actions"))
+	b.key("e", m.tr("marquer faite", "mark done"))
+	b.key("enter", m.tr("ouvrir le point de l'action", "open the action's item"))
+	b.key("o", m.tr("aller à la ref du point (son dossier)", "go to the item's ref (its dossier)"))
+	b.key("f", m.tr("montrer aussi les actions faites", "also show done actions"))
 	m.helpFilter(b)
 	b.key("esc", m.tr("retour", "back"))
 }
@@ -354,7 +362,7 @@ func (m *model) helpDoc(b *helpBuilder) {
 // helpAsk shows G when the sphere declares the request and the meeting can receive it.
 func (m *model) helpAsk(b *helpBuilder) {
 	if m.agenda != nil && m.st.CanAsk(m.agenda.Sitting.Meeting, "outcomes") {
-		b.key("G", m.tr("demander à l'agent de la séance d'écrire les issues (brouillons ✎ à relire avant m)",
+		b.key("R", m.tr("demander à l'agent de la séance d'écrire les issues (brouillons ✎ à relire avant m)",
 			"ask the meeting's agent to write the outcomes (drafts ✎ to review before m)"))
 	}
 }
@@ -366,8 +374,8 @@ func (m *model) helpStanding(b *helpBuilder) {
 	b.text(m.tr("Dans l'ordre du jour, ↻ marque un exemplaire pas encore écrit : il l'est au premier geste, au gel ou à la tenue. Non traité, il est retiré au PV, pas reporté.",
 		"In the agenda, ↻ marks an instance not written yet: it is at the first gesture, at freeze or hold. Not dealt with, it is dropped at the minutes, not deferred."))
 	b.title(m.tr("OPTIONS", "OPTIONS"))
-	b.key("n", m.tr("nouveau point récurrent (à la fin)", "new recurring item (at the end)"))
-	b.key("s", m.tr("le mettre au début / à la fin", "put it at the start / the end"))
+	b.key("c", m.tr("nouveau point récurrent (à la fin)", "new recurring item (at the end)"))
+	b.key("p", m.tr("le mettre au début / à la fin", "put it at the start / the end"))
 	b.key("x", m.tr("l'arrêter (les exemplaires déjà écrits restent)", "stop it (instances already written stay)"))
 	b.key("esc", m.tr("retour à l'ordre du jour", "back to the agenda"))
 }

@@ -13,6 +13,8 @@ import (
 type saved struct {
 	Sphere   string `json:"sphere,omitempty"`
 	Filter   string `json:"filter,omitempty"`
+	Query    string `json:"query,omitempty"`
+	PaneOff  bool   `json:"pane_off,omitempty"`
 	View     view   `json:"view"`
 	Back     view   `json:"back"`
 	Meeting  string `json:"meeting,omitempty"`
@@ -47,7 +49,7 @@ func statePath(spheres []string) string {
 }
 
 func (m *model) snapshot() saved {
-	s := saved{Sphere: m.st.Sphere, Filter: m.filter, View: m.view, Back: m.back, HelpOff: m.helpOff, ShowDone: m.showDone,
+	s := saved{Sphere: m.st.Sphere, Filter: m.filter, Query: m.query, PaneOff: m.paneOff, View: m.view, Back: m.back, HelpOff: m.helpOff, ShowDone: m.showDone,
 		OvScope: m.ovScope, SelO: m.selO, SelA: m.selA}
 	if m.selM < len(m.meetings) {
 		s.Meeting = m.meetings[m.selM].alias
@@ -114,6 +116,7 @@ func (m *model) restore() tea.Cmd {
 		}
 	}
 	m.helpOff, m.showDone, m.ovScope, m.selO, m.selA = s.HelpOff, s.ShowDone, s.OvScope, s.SelO, s.SelA
+	m.query, m.paneOff = s.Query, s.PaneOff
 	m.restoreMeeting = s.Meeting
 	m.live.spent = map[string]time.Duration{}
 	for k, v := range s.Spent {

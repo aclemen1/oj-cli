@@ -33,7 +33,7 @@ func TestStandingInTUI(t *testing.T) {
 	}
 	// Moving an item writes the recurring ones first, then moves.
 	m.sel = 0
-	press(t, m, "J")
+	press(t, m, "ctrl+j")
 	for _, ai := range m.agenda.Items {
 		if ai.Item.Virtual {
 			t.Fatal("J should have written the recurring item")
@@ -44,10 +44,10 @@ func TestStandingInTUI(t *testing.T) {
 	}
 	// The next sitting shows its own instance; the live timer follows it when written.
 	press(t, m, "]")
-	press(t, m, "l")
+	press(t, m, "L")
 	press(t, m, "space")
 	*now = now.Add(2 * time.Minute)
-	press(t, m, "s")
+	press(t, m, "E")
 	typeText(t, m, "Le 22")
 	press(t, m, "enter")
 	it := m.agenda.Items[0].Item
@@ -84,7 +84,7 @@ func TestHeldSittingPreviewAndAsk(t *testing.T) {
 		t.Fatalf("missed recurring item: %+v", last)
 	}
 	// G sends the sphere's request to the meeting's ref target.
-	press(t, m, "G")
+	press(t, m, "R")
 	b, _ := os.ReadFile(log)
 	got := string(b)
 	if !strings.HasPrefix(got, "U-0006\nIssues de RDIR-2026-10-08 (Séance de direction) :") || !strings.Contains(got, "- RDIR-1 · Budget 2027") {
@@ -123,18 +123,19 @@ func TestStandingFromTUI(t *testing.T) {
 		t.Fatalf("next sitting starts with the recurring item: %v", agendaIDs(m))
 	}
 	// R: the list; n adds, s moves, x stops.
-	press(t, m, "R")
+	press(t, m, "g")
+	press(t, m, "r")
 	if m.view != vStanding || !strings.Contains(screen(m), "↻ "+mt.Standing[0].Key) {
 		t.Fatalf("standing view:\n%s", screen(m))
 	}
-	press(t, m, "n")
+	press(t, m, "c")
 	typeText(t, m, "Repas")
 	press(t, m, "enter")
 	if len(m.standing) != 2 || m.standing[1].Key != "repas" || m.standing[1].Place != "end" {
 		t.Fatalf("added %+v", m.standing)
 	}
 	m.selR = 1
-	press(t, m, "s")
+	press(t, m, "p")
 	if m.standing[1].Place != "start" {
 		t.Fatalf("place %+v", m.standing[1])
 	}
@@ -230,6 +231,10 @@ func press(t *testing.T, m *model, s string) {
 		k = tea.KeyPressMsg{Code: tea.KeyEscape}
 	case "space":
 		k = tea.KeyPressMsg{Code: tea.KeySpace, Text: " "}
+	case "tab":
+		k = tea.KeyPressMsg{Code: tea.KeyTab}
+	case "ctrl+j", "ctrl+k":
+		k = tea.KeyPressMsg{Code: rune(s[5]), Mod: tea.ModCtrl}
 	default:
 		k = tea.KeyPressMsg{Code: []rune(s)[0], Text: s}
 	}
@@ -280,7 +285,7 @@ func TestMeetingsAndAgenda(t *testing.T) {
 		}
 	}
 	// Move Budget down, then lengthen Point RH, accept the proposal.
-	press(t, m, "J")
+	press(t, m, "ctrl+j")
 	if m.agenda.Items[0].Item.ID != "RDIR-2" || m.sel != 1 {
 		t.Fatalf("reorder: %s first, sel %d", m.agenda.Items[0].Item.ID, m.sel)
 	}
@@ -347,7 +352,7 @@ func TestItemPane(t *testing.T) {
 	if s := screen(m); !strings.Contains(s, "── RDIR-2 · Point RH") || strings.Contains(s, "Approuver le projet") {
 		t.Fatalf("pane follows the selection:\n%s", s)
 	}
-	press(t, m, "l")
+	press(t, m, "L")
 	if s := screen(m); !strings.Contains(s, "── RDIR-1 · Budget 2027") {
 		t.Fatalf("live pane:\n%s", s)
 	}
@@ -383,7 +388,7 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	if !m.statusErr || !strings.Contains(m.status, "proposed") {
 		t.Fatalf("freeze with proposal: %q", m.status)
 	}
-	press(t, m, "l")
+	press(t, m, "L")
 	press(t, m, "space")
 	*now = now.Add(12 * time.Minute)
 	if s := screen(m); !strings.Contains(s, "12:00") || !strings.Contains(s, "timer running") {
@@ -392,10 +397,10 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	press(t, m, "D")
 	typeText(t, m, "Approuvé")
 	press(t, m, "enter")
-	press(t, m, "t")
+	press(t, m, "c")
 	typeText(t, m, "Envoyer au rectorat|Marie|2026-10-20")
 	press(t, m, "enter")
-	press(t, m, "s")
+	press(t, m, "E")
 	typeText(t, m, "Présenté")
 	press(t, m, "enter")
 	it, _ := st.Item("RDIR-1")
@@ -405,14 +410,14 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	}
 	press(t, m, "n")
 	*now = now.Add(3 * time.Minute)
-	press(t, m, "-")
+	press(t, m, "z")
 	if it, _ := st.Item("RDIR-2"); it.History[0].Outcome.Next != "deferred" {
 		t.Fatal("defer in live")
 	}
 	if s := screen(m); !strings.Contains(s, "elapsed 15:00") {
 		t.Fatalf("elapsed:\n%s", s)
 	}
-	press(t, m, "h")
+	press(t, m, "H")
 	press(t, m, "esc")
 	press(t, m, "m")
 	typeText(t, m, "yes")
@@ -429,7 +434,7 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	if len(m.actions) != 0 {
 		t.Fatal("a done action leaves the open list")
 	}
-	press(t, m, "o")
+	press(t, m, "f")
 	if len(m.actions) != 1 || !m.actions[0].Done {
 		t.Fatalf("show done: %+v", m.actions)
 	}
@@ -571,7 +576,7 @@ func TestStateSurvivesRestart(t *testing.T) {
 	press(t, m, "enter")
 	press(t, m, "j")
 	press(t, m, "?")
-	press(t, m, "l")
+	press(t, m, "L")
 	press(t, m, "space")
 	*now = now.Add(5 * time.Minute)
 	press(t, m, "n") // timer moves to RDIR-2 after 5 min on RDIR-1
@@ -671,7 +676,7 @@ func TestEscBackQQuits(t *testing.T) {
 		}
 	}
 	press(t, m, "enter")
-	press(t, m, "l")
+	press(t, m, "L")
 	press(t, m, "esc")
 	if m.view != vAgenda {
 		t.Fatalf("esc from live: view %d", m.view)
@@ -810,5 +815,74 @@ func TestReloadAfterRebuild(t *testing.T) {
 	press(t, m2, "esc")
 	if _, cmd := m2.Update(watchMsg{}); !quits(cmd) {
 		t.Fatal("SIGUSR1 reloads once idle")
+	}
+}
+
+func TestCommonKeys(t *testing.T) {
+	m, st, _ := setup(t)
+	press(t, m, "l") // l opens, like enter
+	if m.view != vAgenda || len(m.rows) != 3 {
+		t.Fatalf("l opens the agenda: view %d, %d rows", m.view, len(m.rows))
+	}
+	press(t, m, "G")
+	if m.sel != 2 {
+		t.Fatalf("G goes to the end: sel %d", m.sel)
+	}
+	press(t, m, "g")
+	press(t, m, "g")
+	if m.sel != 0 {
+		t.Fatalf("gg goes to the top: sel %d", m.sel)
+	}
+	// / filters the list; esc clears the filter before going back.
+	press(t, m, "/")
+	for _, r := range "audit" {
+		press(t, m, string(r))
+	}
+	press(t, m, "enter")
+	if len(m.rows) != 1 || m.rows[0].item.ID != "RDIR-3" || !strings.Contains(screen(m), "/audit") {
+		t.Fatalf("filter: %d rows\n%s", len(m.rows), screen(m))
+	}
+	press(t, m, "esc")
+	if m.view != vAgenda || m.query != "" || len(m.rows) != 3 {
+		t.Fatalf("esc clears the filter first: view %d, query %q, %d rows", m.view, m.query, len(m.rows))
+	}
+	// tab hides the item pane.
+	if !strings.Contains(screen(m), "── RDIR-1") {
+		t.Fatal("pane shown by default")
+	}
+	press(t, m, "tab")
+	if strings.Contains(screen(m), "── RDIR-1") {
+		t.Fatal("tab hides the pane")
+	}
+	press(t, m, "tab")
+	// 2 shows the actions; e marks done, enter opens the item.
+	st.SetOutcome("RDIR-1", "", store.OutcomeInput{Decision: "OK", Actions: []string{"Envoyer|Marie|"}})
+	press(t, m, "2")
+	if m.view != vActions || len(m.actions) != 1 {
+		t.Fatalf("2: view %d, %d actions", m.view, len(m.actions))
+	}
+	press(t, m, "enter")
+	if m.view != vItem || m.item == nil || m.item.ID != "RDIR-1" {
+		t.Fatalf("enter opens the action's item: view %d", m.view)
+	}
+	press(t, m, "h") // h goes back, like esc
+	if m.view != vActions {
+		t.Fatalf("h goes back to the actions: view %d", m.view)
+	}
+	press(t, m, "e")
+	if len(m.actions) != 0 {
+		t.Fatal("e marks the action done")
+	}
+	press(t, m, "esc")
+	if m.view == vActions {
+		t.Fatal("esc leaves the actions")
+	}
+	press(t, m, "1")
+	if m.view != vMeetings {
+		t.Fatalf("1: view %d", m.view)
+	}
+	press(t, m, "3")
+	if m.view != vSittings {
+		t.Fatalf("3: view %d", m.view)
 	}
 }

@@ -75,6 +75,7 @@ const (
 	pUnminute
 	pMakeStanding
 	pNewStanding
+	pFilter
 )
 
 // row is a line of the agenda: an item on it, a proposal, a dropped item, or
@@ -179,6 +180,13 @@ type model struct {
 	exe, exeStamp, build    string
 	newBin, reexec, editing bool
 
+	// query filters the lists (/); gPending waits for the second key of gg or g r;
+	// paneOff hides the item pane (tab), paneScroll scrolls it (J K).
+	query      string
+	gPending   bool
+	paneOff    bool
+	paneScroll int
+
 	// standing lists the recurring items of the open meeting.
 	standing []store.Standing
 	selR     int
@@ -261,9 +269,9 @@ func (m *model) keyStanding(k tea.KeyPressMsg) tea.Cmd {
 		m.selR = min(len(m.standing)-1, m.selR+1)
 	case "k", "up":
 		m.selR = max(0, m.selR-1)
-	case "n":
+	case "c", "n":
 		return m.ask(pNewStanding, m.tr("nouveau point récurrent (à la fin)", "new recurring item (at the end)"), "", "")
-	case "s":
+	case "p":
 		if cur != nil {
 			key, place := cur.Key, "start"
 			if cur.Place == "start" {
@@ -614,7 +622,12 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setStatus(msg.err.Error(), true)
 			break
 		}
-		m.meetings = msg.rows
+		m.meetings = nil
+		for _, r := range msg.rows {
+			if matches(m.query, r.alias, r.title) {
+				m.meetings = append(m.meetings, r)
+			}
+		}
 		if m.restoreMeeting != "" {
 			for i, r := range m.meetings {
 				if r.alias == m.restoreMeeting && r.sphere == m.st.Sphere {
@@ -647,6 +660,15 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		for _, it := range msg.agenda.Dropped {
 			m.rows = append(m.rows, row{item: it, dropped: true})
+		}
+		if m.query != "" {
+			kept := m.rows[:0]
+			for _, r := range m.rows {
+				if matches(m.query, r.item.ID, r.item.Title, r.item.Standing) {
+					kept = append(kept, r)
+				}
+			}
+			m.rows = kept
 		}
 		if m.pick != "" {
 			for i, r := range m.rows {
@@ -696,6 +718,7 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.ovRows = append(m.ovRows, ovRow{sphere: sp, meeting: ov.Meeting, item: it, unplanned: true})
 			}
 		}
+		m.ovRows = filterOverview(m.query, m.ovRows)
 		m.selO = min(m.selO, max(0, len(m.ovRows)-1))
 	case itemMsg:
 		if msg.err != nil {
@@ -709,7 +732,12 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.setStatus(msg.err.Error(), true)
 			break
 		}
-		m.actions = msg.rows
+		m.actions = nil
+		for _, a := range msg.rows {
+			if matches(m.query, a.Item, a.Title, a.What, a.Who) {
+				m.actions = append(m.actions, a)
+			}
+		}
 		m.selA = min(m.selA, max(0, len(m.actions)-1))
 	case doneMsg:
 		m.editing = false
@@ -768,6 +796,9 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.moving != nil {
 			return m, m.keyPicker(msg)
 		}
+		if cmd, done := m.keyCommon(&msg); done {
+			return m, cmd
+		}
 		switch m.view {
 		case vMeetings:
 			return m, m.keyMeetings(msg)
@@ -790,11 +821,11 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "esc":
 				m.view = vAgenda
 				return m, m.reload()
-			case "j", "down":
+			case "j", "down", "J":
 				m.scroll++
-			case "k", "up":
+			case "k", "up", "K":
 				m.scroll = max(0, m.scroll-1)
-			case "G":
+			case "R":
 				return m, m.askAgent("outcomes")
 			}
 		}
@@ -969,6 +1000,10 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			return nil
 		}
 		return m.do(target+m.tr(" devient récurrent", " made recurring"), func() error { _, err := m.st.MakeStanding(target, place, ""); return err })
+	case pFilter:
+		m.query = v
+		m.sel, m.selM, m.selA, m.selO = 0, 0, 0, 0
+		return m.reload()
 	case pNewStanding:
 		if v == "" {
 			return nil
@@ -1039,8 +1074,6 @@ func (m *model) keyMeetings(k tea.KeyPressMsg) tea.Cmd {
 		return m.loadActions()
 	case "S":
 		return m.openOverview("", vMeetings)
-	case "R":
-		return m.loadMeetings()
 	}
 	return nil
 }
@@ -1057,7 +1090,7 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	sit := m.agenda.Sitting
 	// A gesture on a recurring item still virtual writes it first.
 	switch k.String() {
-	case "enter", "a", "d", "x", "+", "-", "e", "N", "c", "u", "o":
+	case "enter", "a", "z", "d", "x", "+", "-", "E", "N", "O", "u", "o":
 		if r != nil && r.item.Virtual {
 			if _, err := m.real(r.item); err != nil {
 				m.setStatus(err.Error(), true)
@@ -1065,7 +1098,11 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 			}
 			r = m.current()
 		}
-	case "K", "J":
+	case "ctrl+k", "ctrl+j":
+		if m.query != "" {
+			m.setStatus(m.tr("ordre : vider le filtre d'abord (esc)", "order: clear the filter first (esc)"), true)
+			return nil
+		}
 		if err := m.realAll(); err != nil {
 			m.setStatus(err.Error(), true)
 			return nil
@@ -1078,37 +1115,40 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		return m.loadMeetings()
 	case "j", "down":
 		m.sel = min(len(m.rows)-1, m.sel+1)
+		m.paneScroll = 0
 	case "k", "up":
 		m.sel = max(0, m.sel-1)
+		m.paneScroll = 0
+	case "J":
+		m.paneScroll++
+	case "K":
+		m.paneScroll = max(0, m.paneScroll-1)
 	case "enter":
 		if r != nil {
 			m.back, m.view, m.scroll, m.item = vAgenda, vItem, 0, r.item
 			return m.loadItem(r.item.ID)
 		}
-	case "n":
+	case "c", "n":
 		return m.ask(pNewItem, "new item", "", "")
 	case "*":
 		if r != nil {
 			if k := r.item.StandingKey(); k != "" {
-				m.setStatus(m.tr("déjà récurrent ("+k+") : R pour la liste", "already recurring ("+k+"): R for the list"), true)
+				m.setStatus(m.tr("déjà récurrent ("+k+") : g r pour la liste", "already recurring ("+k+"): g r for the list"), true)
 				return nil
 			}
 			return m.ask(pMakeStanding, m.tr(r.item.ID+" récurrent, au début ou à la fin ?", r.item.ID+" recurring, at the start or the end?"), r.item.ID, m.tr("fin", "end"))
 		}
-	case "R":
-		m.view, m.selR = vStanding, 0
-		return m.loadStanding()
 	case "P":
 		m.view, m.scroll, m.doc = vDoc, 0, docMsg{}
 		return m.loadDoc()
-	case "G":
+	case "R":
 		return m.askAgent("outcomes")
 	case "a":
 		if r != nil && r.proposed {
 			id := r.item.ID
 			return m.do(id+" accepted", func() error { _, err := m.st.AcceptItems([]string{id}); return err })
 		}
-	case "d":
+	case "z", "d":
 		if r != nil {
 			id := r.item.ID
 			return m.do(id+" deferred", func() error { _, err := m.st.DeferItem(id, ""); return err })
@@ -1117,15 +1157,15 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		if r != nil {
 			return m.ask(pDrop, "reason to drop "+r.item.ID, r.item.ID, "")
 		}
-	case "K", "J":
+	case "ctrl+k", "ctrl+j":
 		if r != nil && !r.proposed {
-			return m.reorder(k.String() == "K")
+			return m.reorder(k.String() == "ctrl+k")
 		}
 	case "+", "-":
 		if r != nil {
 			return m.nudge(r.item, k.String() == "+")
 		}
-	case "e":
+	case "E":
 		if r != nil {
 			return m.edit(r.item.ID)
 		}
@@ -1150,9 +1190,9 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 			}
 			return doneMsg{status: status}
 		}
-	case "r":
+	case "F":
 		return m.do(sit.ID+" reopened", func() error { _, err := m.st.ReopenSitting(sit.ID); return err })
-	case "h":
+	case "H":
 		return m.do(sit.ID+" held", func() error { _, err := m.st.HoldSitting(sit.ID, nil, nil); return err })
 	case "m":
 		return m.ask(pMinute, "approve the minutes of "+sit.ID+"? type yes", sit.ID, "")
@@ -1170,7 +1210,7 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		if r != nil && (r.item.State == "proposed" || r.item.State == "accepted" || r.item.State == "deferred") {
 			return m.startMove(r.item)
 		}
-	case "c":
+	case "O":
 		if r != nil {
 			scheme, err := m.st.CreateScheme("")
 			if err != nil {
@@ -1188,8 +1228,8 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "[", "]":
 		return m.step(k.String() == "]")
-	case "l":
-		m.view = vLive
+	case "L":
+		m.view, m.paneScroll = vLive, 0
 		return nil
 	case "A":
 		m.back, m.view = vAgenda, vActions
@@ -1327,12 +1367,15 @@ func (m *model) keyItem(k tea.KeyPressMsg) tea.Cmd {
 	switch k.String() {
 	case "esc":
 		m.view = m.back
+		if m.view == vActions {
+			m.back = vMeetings
+		}
 		return m.reload()
-	case "j", "down":
+	case "j", "down", "J":
 		m.scroll++
-	case "k", "up":
+	case "k", "up", "K":
 		m.scroll = max(0, m.scroll-1)
-	case "e":
+	case "E":
 		if m.item != nil {
 			return m.edit(m.item.ID)
 		}
@@ -1449,7 +1492,7 @@ func (m *model) spent(of *store.Item) time.Duration {
 func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 	it := m.liveItem()
 	switch k.String() {
-	case "s", "D", "t", "o", "-":
+	case "E", "D", "c", "o", "z", "-":
 		if it != nil && it.Virtual {
 			m.pause()
 			w, err := m.real(it)
@@ -1475,13 +1518,19 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 		if m.live.cur+1 < len(m.agenda.Items) {
 			m.pause()
 			m.live.cur++
+			m.paneScroll = 0
 		}
 	case "p", "k", "up":
 		if m.live.cur > 0 {
 			m.pause()
 			m.live.cur--
+			m.paneScroll = 0
 		}
-	case "s":
+	case "J":
+		m.paneScroll++
+	case "K":
+		m.paneScroll = max(0, m.paneScroll-1)
+	case "E":
 		if it != nil {
 			return m.ask(pSummary, "summary of "+it.ID, it.ID, m.outcomeField(it.ID, "summary"))
 		}
@@ -1489,7 +1538,7 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 		if it != nil {
 			return m.ask(pDecision, "decision on "+it.ID, it.ID, m.outcomeField(it.ID, "decision"))
 		}
-	case "t":
+	case "c":
 		if it != nil {
 			return m.ask(pAction, "action what|who|YYYY-MM-DD|done", it.ID, "")
 		}
@@ -1497,7 +1546,7 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 		if it != nil {
 			return m.jump(it)
 		}
-	case "-":
+	case "z", "-":
 		if it != nil {
 			return m.outcome(it.ID, func(in *store.OutcomeInput) {
 				in.Next = "deferred"
@@ -1506,7 +1555,7 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 				}
 			})
 		}
-	case "h":
+	case "H":
 		m.pause()
 		m.live.running = false
 		sit := m.agenda.Sitting.ID
@@ -1536,9 +1585,30 @@ func (m *model) keyActions(k tea.KeyPressMsg) tea.Cmd {
 		m.selA = min(len(m.actions)-1, m.selA+1)
 	case "k", "up":
 		m.selA = max(0, m.selA-1)
-	case "space", " ", "enter":
+	case "enter":
 		if m.selA < len(m.actions) {
 			a := m.actions[m.selA]
+			m.enter(a.Sphere)
+			m.back, m.view, m.scroll, m.item = vActions, vItem, 0, nil
+			return m.loadItem(a.Item)
+		}
+	case "o":
+		if m.selA < len(m.actions) {
+			a := m.actions[m.selA]
+			m.enter(a.Sphere)
+			it, err := m.st.Item(a.Item)
+			if err != nil {
+				m.setStatus(err.Error(), true)
+				return nil
+			}
+			return m.jump(it)
+		}
+	case "space", " ", "e":
+		if m.selA < len(m.actions) {
+			a := m.actions[m.selA]
+			if k.String() == "e" && a.Done {
+				return nil
+			}
 			verb := "done"
 			if a.Done {
 				verb = "open again"
@@ -1549,7 +1619,7 @@ func (m *model) keyActions(k tea.KeyPressMsg) tea.Cmd {
 				return err
 			})
 		}
-	case "o":
+	case "f":
 		m.showDone = !m.showDone
 		return m.loadActions()
 	case "s":
