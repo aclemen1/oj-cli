@@ -67,31 +67,51 @@ func SortActions(out []ActionRow) {
 }
 
 // SetActionDone marks action n (from 1) of an item's outcome done or open.
-// sitting defaults to the latest outcome that has actions.
+// sitting defaults to the latest outcome that has actions. An action already
+// in that state is left alone: no commit, no event.
 func (s *Store) SetActionDone(id, sitting string, n int, done bool) (*Item, error) {
-	verb := "done"
+	cur, err := s.Item(id)
+	if err != nil {
+		return nil, err
+	}
+	if e, err := actionEntry(cur, sitting, n); err != nil {
+		return nil, err
+	} else if e.Outcome.Actions[n-1].Done == done {
+		return cur, nil
+	}
+	verb, event := "done", "action.done"
 	if !done {
-		verb = "open"
+		verb, event = "open", "action.reopened"
 	}
 	return s.changeItem(id, "actions "+verb+" "+strings.ToUpper(id), func(it *Item, _ *Meeting) error {
-		var e *Entry
-		if sitting != "" {
-			e = it.entry(strings.ToUpper(sitting))
-		} else {
-			for i := len(it.History) - 1; i >= 0; i-- {
-				if o := it.History[i].Outcome; o != nil && len(o.Actions) > 0 {
-					e = &it.History[i]
-					break
-				}
-			}
-		}
-		if e == nil || e.Outcome == nil || n < 1 || n > len(e.Outcome.Actions) {
-			return spec.NotFound("item %s has no action %d%s. List them with `oj actions ls %s`", it.ID, n, inSitting(sitting), it.Meeting)
+		e, err := actionEntry(it, sitting, n)
+		if err != nil {
+			return err
 		}
 		e.Outcome.Actions[n-1].Done = done
 		s.log(&it.Log, "action "+e.Sitting+"#"+strconv.Itoa(n)+" "+verb)
+		s.emit(event, it.Meeting, map[string]any{"item": it, "sitting": e.Sitting, "n": n, "action": e.Outcome.Actions[n-1]})
 		return nil
 	})
+}
+
+// actionEntry finds the history entry holding action n of an item.
+func actionEntry(it *Item, sitting string, n int) (*Entry, error) {
+	var e *Entry
+	if sitting != "" {
+		e = it.entry(strings.ToUpper(sitting))
+	} else {
+		for i := len(it.History) - 1; i >= 0; i-- {
+			if o := it.History[i].Outcome; o != nil && len(o.Actions) > 0 {
+				e = &it.History[i]
+				break
+			}
+		}
+	}
+	if e == nil || e.Outcome == nil || n < 1 || n > len(e.Outcome.Actions) {
+		return nil, spec.NotFound("item %s has no action %d%s. List them with `oj actions ls %s`", it.ID, n, inSitting(sitting), it.Meeting)
+	}
+	return e, nil
 }
 
 func inSitting(s string) string {

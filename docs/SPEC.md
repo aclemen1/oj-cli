@@ -340,7 +340,8 @@ directory, with a timeout (30 s by default).
 | `item.added`, `item.accepted`, `item.dropped` | item (and reason) | tell the dossier the item came from |
 | `item.deferred`, `item.moved` | item, from, to | tell the dossier its item moved |
 | `outcome.set` | item, sitting, outcome | tell the dossier what was decided |
-| `action.added` | item, sitting, action — only for an action new in the outcome | open a dossier for the action |
+| `action.added` | item, sitting, n, action — only for an action new in the outcome | record the action in a task tool |
+| `action.done`, `action.reopened` | item, sitting, n, action — only when the state changes | mark the task done or open in a task tool |
 | `sitting.moved`, `sitting.cancelled` | sitting (moved items; `source: calendar` from a sync) | tell the meeting's dossier |
 | `sitting.frozen` | sitting, rendered agenda path, items | deposit the agenda in an artefact store |
 | `sitting.held` | sitting | |

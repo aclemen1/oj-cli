@@ -106,9 +106,22 @@ func TestHooks(t *testing.T) {
 	if last := recorded(t, out); last[len(last)-1]["event"] != "outcome.set" {
 		t.Fatalf("last event %v", last[len(last)-1]["event"])
 	}
+	if evs[3]["n"] != float64(1) {
+		t.Fatalf("action number %v", evs[3]["n"])
+	}
+	// Marking an action fires once; marking it again in the same state does nothing.
+	n := len(recorded(t, out))
+	must[*Item](t)(s.SetActionDone("RDIR-1", "", 1, true))
+	must[*Item](t)(s.SetActionDone("RDIR-1", "", 1, true))
+	must[*Item](t)(s.SetActionDone("RDIR-1", "", 1, false))
+	last := recorded(t, out)[n:]
+	if len(last) != 2 || last[0]["event"] != "action.done" || last[1]["event"] != "action.reopened" ||
+		last[0]["n"] != float64(1) || last[0]["sitting"] != "RDIR-2026-10-08" {
+		t.Fatalf("action events %v", last)
+	}
 	// Too deep: hooks are skipped.
 	t.Setenv("OJ_HOOK_DEPTH", "3")
-	n := len(recorded(t, out))
+	n = len(recorded(t, out))
 	must[*Item](t)(s.AddItem("RDIR", ItemInput{Title: "Profond"}, false, ""))
 	if len(recorded(t, out)) != n || !strings.Contains(warns[len(warns)-1], "skipped") {
 		t.Fatal("hooks should be skipped at depth 3")

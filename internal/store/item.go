@@ -672,9 +672,9 @@ func (s *Store) SetOutcome(id, sitting string, in OutcomeInput) (*Item, error) {
 		}
 		s.log(&it.Log, "outcome "+status+" for "+sid)
 		s.emit("outcome.set", it.Meeting, map[string]any{"item": it, "sitting": sid, "outcome": o})
-		for _, a := range o.Actions {
+		for i, a := range o.Actions {
 			if !known[a.What] {
-				s.emit("action.added", it.Meeting, map[string]any{"item": it, "sitting": sid, "action": a})
+				s.emit("action.added", it.Meeting, map[string]any{"item": it, "sitting": sid, "n": i + 1, "action": a})
 			}
 		}
 		return nil
