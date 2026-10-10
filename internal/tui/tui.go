@@ -25,7 +25,7 @@ import (
 func init() {
 	spec.Register(&spec.Action{
 		Category: "setup", Name: "tui", Top: true,
-		Summary:  "Open the terminal interface: meetings, agenda, live sitting, actions, of every sphere (s filters).",
+		Summary: "Open the terminal interface: meetings, agenda, live sitting, actions, of every sphere (s filters).",
 		Params: []spec.Param{{Name: "sphere", Kind: spec.String, Help: "Sphere to show. Defaults to every sphere."},
 			{Name: "select", Kind: spec.String, Help: "Open on this item (the sitting that carries it, the item selected) or this sitting, e.g. RDIR-17 or REQUIP-2026-10-08; an unknown id opens the TUI as usual, with a message."}},
 		Effects:  []string{"Runs until q; every change goes through the same store actions as the CLI."},
@@ -215,6 +215,81 @@ type model struct {
 
 	// doc is the preview of the open sitting's agenda or minutes.
 	doc docMsg
+
+	// busy shows the background jobs (! lists them); ops counts the store
+	// changes ended since the last look, each followed by a reload.
+	busy *tuikit.Busy
+	ops  *opCount
+}
+
+// opCount counts the store changes ended in their command, read in Update.
+type opCount struct {
+	mu sync.Mutex
+	n  int
+}
+
+func (c *opCount) add() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.n++
+}
+
+func (c *opCount) take() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	n := c.n
+	c.n = 0
+	return n > 0
+}
+
+// failure is the error a loaded message carries, nil when it loaded well.
+type failure interface{ failure() error }
+
+func (msg meetingsMsg) failure() error { return msg.err }
+func (msg agendaMsg) failure() error   { return msg.err }
+func (msg itemMsg) failure() error     { return msg.err }
+func (msg actionsMsg) failure() error  { return msg.err }
+func (msg overviewMsg) failure() error { return msg.err }
+func (msg standingMsg) failure() error { return msg.err }
+func (msg docMsg) failure() error      { return msg.err }
+func (msg refMsg) failure() error      { return textErr(msg.shown.Error) }
+func (msg citedMsg) failure() error {
+	for _, s := range msg.sections {
+		if s.Error != "" {
+			return fmt.Errorf("%s : %s", s.Title, s.Error)
+		}
+	}
+	return nil
+}
+
+func textErr(s string) error {
+	if s == "" {
+		return nil
+	}
+	return fmt.Errorf("%s", s)
+}
+
+// failedMsg is a loaded message that failed: Busy records the error, the
+// view takes the message as usual.
+type failedMsg struct {
+	inner tea.Msg
+	err   error
+}
+
+func (f failedMsg) Error() string { return f.err.Error() }
+
+// wrap follows a load as a background job under label.
+func (m *model) wrap(label string, cmd tea.Cmd) tea.Cmd {
+	if cmd == nil {
+		return nil
+	}
+	return m.busy.Wrap(label, func() tea.Msg {
+		msg := cmd()
+		if f, ok := msg.(failure); ok && f.failure() != nil {
+			return failedMsg{msg, f.failure()}
+		}
+		return msg
+	})
 }
 
 type docMsg struct {
@@ -236,14 +311,18 @@ func (m *model) loadDoc() tea.Cmd {
 		return nil
 	}
 	st, id, kind := m.st, m.agenda.Sitting.ID, docKind(m.agenda.Sitting)
-	return func() tea.Msg {
+	label := m.tr("rendre l'ordre du jour de ", "render the agenda of ") + id
+	if kind == "minutes" {
+		label = m.tr("rendre le PV de ", "render the minutes of ") + id
+	}
+	return m.wrap(label, func() tea.Msg {
 		r, err := st.RenderDoc(id, kind, "md", "")
 		if err != nil {
 			return docMsg{kind: kind, err: err}
 		}
 		b, err := os.ReadFile(r.Markdown)
 		return docMsg{kind: kind, text: string(b), final: r.Final, err: err}
-	}
+	})
 }
 
 // ask sends the sphere's request to the meeting's agent, e.g. outcomes from a transcript.
@@ -257,7 +336,7 @@ func (m *model) askAgent(request string) tea.Cmd {
 		return nil
 	}
 	id := m.agenda.Sitting.ID
-	return m.do(m.tr("demande envoyée : ", "request sent: ")+request, func() error { _, err := m.st.Ask(id, request); return err })
+	return m.do(m.tr("demander ", "ask ")+request+m.tr(" à l'agent", " of the agent"), m.tr("demande envoyée : ", "request sent: ")+request, func() error { _, err := m.st.Ask(id, request); return err })
 }
 
 type standingMsg struct {
@@ -299,12 +378,12 @@ func (m *model) keyStanding(k tea.KeyPressMsg) tea.Cmd {
 			if cur.Place == "start" {
 				place = "end"
 			}
-			return m.do(key+" → "+place, func() error { _, err := m.st.SetStandingPlace(alias, key, place); return err })
+			return m.do(m.tr("placer ", "place ")+key, key+" → "+place, func() error { _, err := m.st.SetStandingPlace(alias, key, place); return err })
 		}
 	case "x":
 		if cur != nil {
 			key := cur.Key
-			return m.do(key+m.tr(" arrêté", " stopped"), func() error { _, err := m.st.RemoveStanding(alias, key); return err })
+			return m.do(m.tr("arrêter ", "stop ")+key, key+m.tr(" arrêté", " stopped"), func() error { _, err := m.st.RemoveStanding(alias, key); return err })
 		}
 	}
 	return nil
@@ -355,7 +434,7 @@ func newModel(stores ...*store.Store) *model {
 	styles.Cursor.Blink = false
 	in.SetStyles(styles)
 	m := &model{stores: stores, st: stores[0], now: time.Now, input: in, w: 100, h: 30, live: live{spent: map[string]time.Duration{}},
-		refs: map[string]refEntry{}, cited: map[string]citedEntry{}}
+		refs: map[string]refEntry{}, cited: map[string]citedEntry{}, busy: tuikit.NewBusy(), ops: &opCount{}}
 	for _, st := range stores {
 		st.Warn = m.warnings.add
 	}
@@ -456,10 +535,10 @@ type (
 		status string
 		err    error
 	}
-	tickMsg  struct{}
-	refMsg   struct{ shown store.RefShown }
+	tickMsg   struct{}
+	refMsg    struct{ shown store.RefShown }
 	peopleMsg struct{ list []store.Person }
-	citedMsg struct {
+	citedMsg  struct {
 		id       string
 		sections []store.CitedSection
 	}
@@ -502,14 +581,14 @@ func (m *model) fetchRefs() tea.Cmd {
 		}
 		e.loading = true
 		m.refs[ref] = e
-		ref := ref
-		cmds = append(cmds, func() tea.Msg { return refMsg{m.st.ShowRef(ref)} })
+		ref, st := ref, m.st
+		cmds = append(cmds, m.wrap(m.tr("lire ", "read ")+ref, func() tea.Msg { return refMsg{st.ShowRef(ref)} }))
 	}
 	if e, ok := m.cited[it.ID]; m.st.CanCite() && !it.Virtual && !e.loading && (!ok || m.now().Sub(e.at) >= refFresh) {
 		e.loading = true
 		m.cited[it.ID] = e
 		id, st := it.ID, m.st
-		cmds = append(cmds, func() tea.Msg { return citedMsg{id, st.CitedOf("oj:" + id)} })
+		cmds = append(cmds, m.wrap(m.tr("citations de ", "cited by ")+id, func() tea.Msg { return citedMsg{id, st.CitedOf("oj:" + id)} }))
 	}
 	return tea.Batch(cmds...)
 }
@@ -633,9 +712,37 @@ func (m *model) reload() tea.Cmd {
 	return nil
 }
 
-// do runs a store change and reports it.
-func (m *model) do(status string, f func() error) tea.Cmd {
-	return func() tea.Msg { return doneMsg{status: status, err: f()} }
+// reloadJob reloads the view as a background job; the preview's rendering is one already.
+func (m *model) reloadJob() tea.Cmd {
+	if m.view == vDoc {
+		return m.reload()
+	}
+	return m.wrap(m.tr("relecture", "reload"), m.reload())
+}
+
+// do runs a store change as a background job under label; end says it is done.
+func (m *model) do(label, end string, f func() error) tea.Cmd {
+	return m.run(label, func() (string, error) { return end, f() })
+}
+
+// run runs a store change as a background job; the view reloads once it ends.
+func (m *model) run(label string, f func() (string, error)) tea.Cmd {
+	ops := m.ops
+	return m.busy.Run(label, func() (string, error) {
+		defer ops.add()
+		return f()
+	})
+}
+
+// afterOps reloads the view once store changes ended, with their warnings.
+func (m *model) afterOps() tea.Cmd {
+	if !m.ops.take() {
+		return nil
+	}
+	if w := m.warnings.take(); len(w) > 0 {
+		m.setStatus(strings.Join(w, "; "), true)
+	}
+	return m.reload()
 }
 
 func tick() tea.Cmd { return tea.Tick(time.Second, func(time.Time) tea.Msg { return tickMsg{} }) }
@@ -657,6 +764,16 @@ func (m *model) setStatus(s string, isErr bool) { m.status, m.statusErr = s, isE
 
 // Update handles a message, then keeps the state for the next start.
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if cmd, ok := m.busy.Update(msg); ok {
+		return m, tea.Batch(cmd, m.afterOps())
+	}
+	if f, ok := msg.(failedMsg); ok {
+		// Busy shows the failure; the view takes the message, without a status.
+		status, isErr := m.status, m.statusErr
+		next, cmd := m.Update(f.inner)
+		m.status, m.statusErr = status, isErr
+		return next, cmd
+	}
 	// The modal's own messages (cursor, scroll) reach it; oj's own and keys go through update.
 	var modalCmd tea.Cmd
 	if t := reflect.TypeOf(msg); m.modal.Open() && t != nil && t.PkgPath() != ownPkg {
@@ -858,7 +975,7 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.watch()
 		}
 		m.stamp = msg.stamp
-		return m, tea.Batch(m.watch(), m.reload())
+		return m, tea.Batch(m.watch(), m.reloadJob())
 	case tickMsg:
 		if m.view == vLive && m.live.running {
 			return m, tick()
@@ -871,6 +988,10 @@ func (m *model) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.keyPrompt(msg)
 		}
 		m.status = ""
+		if msg.String() == tuikit.BusyKey {
+			m.modal = tuikit.NewModal(m.tr("Travaux", "Jobs"), m.busy.List()).SetSize(m.w, m.h)
+			return m, nil
+		}
 		// Convention of the ecosystem's TUIs: q quits from any view, esc goes back.
 		if msg.String() == "q" {
 			if m.view == vLive {
@@ -959,7 +1080,7 @@ func (m *model) keyPicker(k tea.KeyPressMsg) tea.Cmd {
 	case "enter":
 		id, to := m.moving.ID, m.choices[m.selC].ID
 		m.moving = nil
-		return m.do(id+" → "+to, func() error { _, err := m.st.MoveItem(id, to); return err })
+		return m.do(m.tr("déplacer ", "move ")+id, id+" → "+to, func() error { _, err := m.st.MoveItem(id, to); return err })
 	}
 	return nil
 }
@@ -1050,7 +1171,7 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 		if m.agenda != nil && m.agenda.Sitting.State == "planned" {
 			sitting = m.agenda.Sitting.ID
 		}
-		return m.do("item added", func() error {
+		return m.do(m.tr("ajouter un point", "add an item"), m.tr("point ajouté", "item added"), func() error {
 			_, err := m.st.AddItem(m.meeting, store.ItemInput{Title: v}, true, sitting)
 			return err
 		})
@@ -1059,7 +1180,7 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			m.setStatus("a drop needs a reason", true)
 			return nil
 		}
-		return m.do(target+" dropped", func() error { _, err := m.st.DropItem(target, v); return err })
+		return m.do(m.tr("retirer ", "drop ")+target, target+m.tr(" retiré", " dropped"), func() error { _, err := m.st.DropItem(target, v); return err })
 	case pSummary:
 		return m.outcome(target, func(in *store.OutcomeInput) { in.Summary = v })
 	case pDecision:
@@ -1078,33 +1199,33 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			m.setStatus("minutes not approved", false)
 			return nil
 		}
-		return m.do("minutes approved", func() error { _, err := m.st.MinuteSitting(target); return err })
+		return m.do(m.tr("approuver le PV de ", "approve the minutes of ")+target, m.tr("PV approuvé", "minutes approved"), func() error { _, err := m.st.MinuteSitting(target); return err })
 	case pUnminute:
 		if v != "yes" {
 			m.setStatus("minutes kept", false)
 			return nil
 		}
-		return m.do("minutes taken back", func() error { _, err := m.st.UnminuteSitting(target); return err })
+		return m.do(m.tr("reprendre le PV de ", "take back the minutes of ")+target, m.tr("PV repris", "minutes taken back"), func() error { _, err := m.st.UnminuteSitting(target); return err })
 	case pMakeStanding:
 		place := map[string]string{"s": "start", "start": "start", "d": "start", "début": "start", "e": "end", "end": "end", "f": "end", "fin": "end", "": "end"}[strings.ToLower(v)]
 		if place == "" {
 			m.setStatus(m.tr("répondre début ou fin", "answer start or end"), true)
 			return nil
 		}
-		return m.do(target+m.tr(" devient récurrent", " made recurring"), func() error { _, err := m.st.MakeStanding(target, place, ""); return err })
+		return m.do(m.tr("rendre récurrent ", "make recurring ")+target, target+m.tr(" devient récurrent", " made recurring"), func() error { _, err := m.st.MakeStanding(target, place, ""); return err })
 	case pNote:
 		if v == "" {
 			return nil
 		}
-		return m.do(m.tr("note ajoutée à ", "note added to ")+target, func() error { _, err := m.st.AddNote(target, v); return err })
+		return m.do(m.tr("noter sur ", "add a note to ")+target, m.tr("note ajoutée à ", "note added to ")+target, func() error { _, err := m.st.AddNote(target, v); return err })
 	case pCancelSitting:
-		return func() tea.Msg {
+		return m.run(m.tr("annuler ", "cancel ")+target, func() (string, error) {
 			ch, err := m.st.CancelSitting(target, v)
 			if err != nil {
-				return doneMsg{err: err}
+				return "", err
 			}
-			return doneMsg{status: fmt.Sprintf(m.tr("%s annulée ; %d point(s) passé(s) à la séance suivante", "%s cancelled; %d item(s) moved to the next sitting"), target, len(ch.Moved))}
-		}
+			return fmt.Sprintf(m.tr("%s annulée ; %d point(s) passé(s) à la séance suivante", "%s cancelled; %d item(s) moved to the next sitting"), target, len(ch.Moved)), nil
+		})
 	case pFilter:
 		m.query = v
 		m.sel, m.selM, m.selA, m.selO = 0, 0, 0, 0
@@ -1114,7 +1235,7 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 			return nil
 		}
 		alias := m.meeting
-		return m.do(m.tr("point récurrent ajouté", "recurring item added"), func() error {
+		return m.do(m.tr("ajouter un point récurrent", "add a recurring item"), m.tr("point récurrent ajouté", "recurring item added"), func() error {
 			_, err := m.st.AddStanding(alias, store.Standing{Title: v, Place: "end"})
 			return err
 		})
@@ -1125,7 +1246,7 @@ func (m *model) answer(p prompt, v, target string) tea.Cmd {
 // outcome edits the outcome of an item in the shown sitting, keeping its other fields.
 func (m *model) outcome(id string, edit func(*store.OutcomeInput)) tea.Cmd {
 	sitting := m.agenda.Sitting.ID
-	return m.do("outcome recorded for "+id, func() error {
+	return m.do(m.tr("consigner ", "record ")+id, m.tr("suite consignée pour ", "outcome recorded for ")+id, func() error {
 		it, err := m.st.Item(id)
 		if err != nil {
 			return err
@@ -1251,12 +1372,12 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 	case "a":
 		if r != nil && r.proposed {
 			id := r.item.ID
-			return m.do(id+" accepted", func() error { _, err := m.st.AcceptItems([]string{id}); return err })
+			return m.do(m.tr("retenir ", "accept ")+id, id+m.tr(" retenu", " accepted"), func() error { _, err := m.st.AcceptItems([]string{id}); return err })
 		}
 	case "z", "d":
 		if r != nil {
 			id := r.item.ID
-			return m.do(id+" deferred", func() error { _, err := m.st.DeferItem(id, ""); return err })
+			return m.do(m.tr("reporter ", "defer ")+id, id+m.tr(" reporté", " deferred"), func() error { _, err := m.st.DeferItem(id, ""); return err })
 		}
 	case "x":
 		if r != nil {
@@ -1280,10 +1401,10 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 		}
 	case "f":
 		id := sit.ID
-		return func() tea.Msg {
+		return m.run(m.tr("figer ", "freeze ")+id, func() (string, error) {
 			ch, err := m.st.FreezeSitting(id, false)
 			if err != nil {
-				return doneMsg{err: err}
+				return "", err
 			}
 			var names []string
 			for _, f := range ch.Files {
@@ -1293,17 +1414,17 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 			if ch.Unchanged {
 				status += m.tr(" (ordre du jour inchangé, version précédente gardée)", " (agenda unchanged, previous version kept)")
 			}
-			return doneMsg{status: status}
-		}
+			return status, nil
+		})
 	case "F":
-		return m.do(sit.ID+" reopened", func() error { _, err := m.st.ReopenSitting(sit.ID); return err })
+		return m.do(m.tr("rouvrir ", "reopen ")+sit.ID, sit.ID+m.tr(" rouverte", " reopened"), func() error { _, err := m.st.ReopenSitting(sit.ID); return err })
 	case "X":
 		if sit.State == "planned" || sit.State == "frozen" {
 			return m.ask(pCancelSitting, "", sit.ID, "")
 		}
 		m.setStatus(m.tr("seule une séance planifiée ou figée s'annule", "only a planned or frozen sitting can be cancelled"), true)
 	case "H":
-		return m.do(sit.ID+" held", func() error { _, err := m.st.HoldSitting(sit.ID, nil, nil); return err })
+		return m.do(m.tr("tenir ", "hold ")+sit.ID, sit.ID+m.tr(" tenue", " held"), func() error { _, err := m.st.HoldSitting(sit.ID, nil, nil); return err })
 	case "m":
 		return m.ask(pMinute, "approve the minutes of "+sit.ID+"? type yes", sit.ID, "")
 	case "u":
@@ -1328,7 +1449,7 @@ func (m *model) keyAgenda(k tea.KeyPressMsg) tea.Cmd {
 				return nil
 			}
 			id := r.item.ID
-			return m.do(scheme+" target created for "+id, func() error {
+			return m.do(m.tr("créer la cible ", "create the target ")+scheme+m.tr(" de ", " for ")+id, scheme+m.tr(" créé pour ", " target created for ")+id, func() error {
 				c, err := m.st.CreateRef(id, scheme)
 				if err == nil && c.Known {
 					return fmt.Errorf("%s already has %s", id, c.Ref)
@@ -1355,9 +1476,9 @@ func (m *model) undoItem(it *store.Item) tea.Cmd {
 	id := it.ID
 	switch it.State {
 	case "dropped", "done":
-		return m.do(id+" restored", func() error { _, err := m.st.RestoreItem(id, false); return err })
+		return m.do(m.tr("rétablir ", "restore ")+id, id+m.tr(" rétabli", " restored"), func() error { _, err := m.st.RestoreItem(id, false); return err })
 	case "deferred":
-		return m.do(id+" undeferred", func() error { _, err := m.st.UndeferItem(id); return err })
+		return m.do(m.tr("annuler le report de ", "undefer ")+id, id+m.tr(" n'est plus reporté", " undeferred"), func() error { _, err := m.st.UndeferItem(id); return err })
 	}
 	m.setStatus(id+" is "+it.State+": nothing to take back", true)
 	return nil
@@ -1368,13 +1489,13 @@ func (m *model) undoSitting(sit *store.Sitting) tea.Cmd {
 	id := sit.ID
 	switch sit.State {
 	case "frozen":
-		return m.do(id+" reopened", func() error { _, err := m.st.ReopenSitting(id); return err })
+		return m.do(m.tr("rouvrir ", "reopen ")+id, id+m.tr(" rouverte", " reopened"), func() error { _, err := m.st.ReopenSitting(id); return err })
 	case "held":
-		return m.do(id+" unheld", func() error { _, err := m.st.UnholdSitting(id); return err })
+		return m.do(m.tr("annuler la tenue de ", "unhold ")+id, id+m.tr(" n'est plus tenue", " unheld"), func() error { _, err := m.st.UnholdSitting(id); return err })
 	case "minuted":
 		return m.ask(pUnminute, "take back the minutes of "+id+"? type yes", id, "")
 	case "cancelled":
-		return m.do(id+" restored", func() error { _, err := m.st.RestoreSitting(id); return err })
+		return m.do(m.tr("rétablir ", "restore ")+id, id+m.tr(" rétablie", " restored"), func() error { _, err := m.st.RestoreSitting(id); return err })
 	}
 	m.setStatus(id+" is "+sit.State+": nothing to take back", true)
 	return nil
@@ -1398,7 +1519,7 @@ func (m *model) reorder(up bool) tea.Cmd {
 	ids[i], ids[j] = ids[j], ids[i]
 	m.sel = j
 	sit := m.agenda.Sitting.ID
-	return m.do("order changed", func() error { _, err := m.st.OrderItems(sit, ids); return err })
+	return m.do(m.tr("réordonner ", "reorder ")+sit, m.tr("ordre changé", "order changed"), func() error { _, err := m.st.OrderItems(sit, ids); return err })
 }
 
 // nudge adds or removes five minutes.
@@ -1412,7 +1533,7 @@ func (m *model) nudge(it *store.Item, more bool) tea.Cmd {
 		return nil
 	}
 	id, v := it.ID, store.FormatDuration(d)
-	return m.do(id+" "+v, func() error { _, err := m.st.EditItem(id, store.ItemInput{Duration: v}); return err })
+	return m.do(m.tr("durée de ", "duration of ")+id, id+" "+v, func() error { _, err := m.st.EditItem(id, store.ItemInput{Duration: v}); return err })
 }
 
 // step shows the previous or next sitting of the meeting.
@@ -1524,7 +1645,7 @@ func (m *model) jump(it *store.Item) tea.Cmd {
 		m.setStatus(m.tr("aucune ref à ouvrir pour ce point (refs.<schéma>.open)", "no ref to open for this item (refs.<scheme>.open)"), true)
 		return nil
 	}
-	return m.do("→ "+ref, func() error { return m.st.OpenRef(ref) })
+	return m.do(m.tr("ouvrir ", "open ")+ref, "→ "+ref, func() error { return m.st.OpenRef(ref) })
 }
 
 // real writes a recurring item that is still virtual and puts the written
@@ -1675,7 +1796,7 @@ func (m *model) keyLive(k tea.KeyPressMsg) tea.Cmd {
 		m.pause()
 		m.live.running = false
 		sit := m.agenda.Sitting.ID
-		return m.do(sit+" held", func() error { _, err := m.st.HoldSitting(sit, nil, nil); return err })
+		return m.do(m.tr("tenir ", "hold ")+sit, sit+m.tr(" tenue", " held"), func() error { _, err := m.st.HoldSitting(sit, nil, nil); return err })
 	}
 	return nil
 }
@@ -1730,7 +1851,7 @@ func (m *model) keyActions(k tea.KeyPressMsg) tea.Cmd {
 				verb = "open again"
 			}
 			st := m.storeOf(a.Sphere)
-			return m.do(fmt.Sprintf("%s#%d %s", a.Item, a.N, verb), func() error {
+			return m.do(fmt.Sprintf("action %s#%d", a.Item, a.N), fmt.Sprintf("%s#%d %s", a.Item, a.N, verb), func() error {
 				_, err := st.SetActionDone(a.Item, a.Sitting, a.N, !a.Done)
 				return err
 			})

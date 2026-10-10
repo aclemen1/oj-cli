@@ -55,9 +55,9 @@ func buildLabel(path string) string {
 	return label
 }
 
-// idle is true when nothing is being typed, picked or edited.
+// idle is true when nothing is being typed, picked, edited or run in the background.
 func (m *model) idle() bool {
-	return m.prompt == pNone && m.moving == nil && !m.editing
+	return m.prompt == pNone && m.moving == nil && !m.editing && m.busy.Running() == 0
 }
 
 // maybeReload quits for a re-exec once a new binary waits and the TUI is idle.

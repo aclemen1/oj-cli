@@ -42,7 +42,7 @@ func (m *model) keyCommon(k *tea.KeyPressMsg) (tea.Cmd, bool) {
 		m.paneOff = !m.paneOff
 		return nil, true
 	case "r":
-		return m.reload(), true
+		return m.reloadJob(), true
 	case "1":
 		m.view, m.back = vMeetings, vMeetings
 		return m.loadMeetings(), true

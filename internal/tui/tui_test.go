@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -215,8 +216,12 @@ func drive(t *testing.T, m *model, cmd tea.Cmd) {
 
 func typeName(v any) string {
 	switch v.(type) {
-	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg, tuikit.DoneMsg, tuikit.CancelMsg, peopleMsg:
+	case meetingsMsg, agendaMsg, itemMsg, actionsMsg, doneMsg, refMsg, citedMsg, overviewMsg, standingMsg, docMsg, tuikit.DoneMsg, tuikit.CancelMsg, peopleMsg, failedMsg:
 		return "oj"
+	}
+	// The end of a background job goes to Busy; its spinner ticks are dropped.
+	if fmt.Sprintf("%T", v) == "tuikit.busyDoneMsg" {
+		return "busy"
 	}
 	return "tea.other"
 }
@@ -385,8 +390,8 @@ func TestLiveSittingAndMinutes(t *testing.T) {
 	m, st, now := setup(t)
 	press(t, m, "enter")
 	press(t, m, "f") // a proposal is still there
-	if !m.statusErr || !strings.Contains(m.status, "proposed") {
-		t.Fatalf("freeze with proposal: %q", m.status)
+	if b := ansi.Strip(m.busy.View()); !strings.Contains(b, "✗") || !strings.Contains(b, "proposed") {
+		t.Fatalf("freeze with proposal: %q", b)
 	}
 	press(t, m, "L")
 	press(t, m, "space")
@@ -986,7 +991,48 @@ func TestCancelSittingInTUI(t *testing.T) {
 	if it, _ := st.Item("RDIR-1"); it.Sitting != "RDIR-2026-10-15" {
 		t.Fatalf("item moved to %s", it.Sitting)
 	}
-	if !strings.Contains(m.status, "2") {
-		t.Fatalf("status %q", m.status)
+	if b := ansi.Strip(m.busy.View()); !strings.Contains(b, "✓ RDIR-2026-10-08 cancelled; 3 item(s) moved") {
+		t.Fatalf("busy %q", b)
+	}
+}
+
+func TestBusyJobs(t *testing.T) {
+	m, _, _ := setup(t)
+	press(t, m, "enter")
+	// A job under way shows in the header.
+	release := make(chan struct{})
+	pending := m.run("figer RDIR-2026-10-08", func() (string, error) { <-release; return "", nil })
+	if s := screen(m); !strings.Contains(strings.Split(s, "\n")[0], "figer RDIR-2026-10-08") {
+		t.Fatalf("running job not in the header:\n%s", s)
+	}
+	close(release)
+	drive(t, m, pending)
+	// A failure stays in red, with ! in the footer, until the list is opened.
+	drive(t, m, m.do("retenir RDIR-9", "RDIR-9 retenu", func() error { return fmt.Errorf("point inconnu") }))
+	s := screen(m)
+	if !strings.Contains(s, "✗ retenir RDIR-9 : point inconnu") || !strings.Contains(s, "! jobs") {
+		t.Fatalf("failure not shown:\n%s", s)
+	}
+	press(t, m, "j")
+	if !strings.Contains(screen(m), "✗ retenir RDIR-9") {
+		t.Fatal("the failure goes away before the list is opened")
+	}
+	// ! opens the list, which marks the failure as read.
+	press(t, m, "!")
+	if !m.modal.Open() || m.busy.Unread() != 0 {
+		t.Fatalf("! opens the jobs: open %v, unread %d", m.modal.Open(), m.busy.Unread())
+	}
+	if v := ansi.Strip(m.View().Content); !strings.Contains(v, "point inconnu") || !strings.Contains(v, "figer RDIR-2026-10-08") {
+		t.Fatalf("jobs list:\n%s", v)
+	}
+	press(t, m, "esc")
+	if m.modal.Open() || strings.Contains(screen(m), "✗") {
+		t.Fatal("esc closes the list; the failure read leaves the header")
+	}
+	// While typing in a modal, ! is a character.
+	press(t, m, "n")
+	press(t, m, "!")
+	if m.prompt != pNewItem {
+		t.Fatal("! during an input must not open the jobs")
 	}
 }

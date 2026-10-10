@@ -7,6 +7,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/aclemen1/oj-cli/internal/store"
+	"github.com/aclemen1/tuikit"
 )
 
 // The help panel says where the user is and what can be done next, for the
@@ -110,6 +111,7 @@ func (m *model) helpPanel(w int) []string {
 	b.key("tab", m.tr("afficher ou masquer le panneau du point ; J K le font défiler", "show or hide the item pane; J K scroll it"))
 	b.key("1 2 3", m.tr("séries, actions, toutes les séances", "meetings, actions, every sitting"))
 	b.key("r", m.tr("relire les données", "reload the data"))
+	b.key(tuikit.BusyKey, m.tr("travaux de fond récents, échecs en entier", "recent background jobs, failures in full"))
 	b.key("?", m.tr("masquer ou afficher cette aide", "hide or show this help"))
 	b.key("q", m.tr("quitter (l'état est gardé pour le prochain lancement)", "quit (the state is kept for the next start)"))
 	return b.lines

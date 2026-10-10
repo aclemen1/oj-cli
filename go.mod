@@ -7,6 +7,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.10
 	charm.land/glamour/v2 v2.0.1
 	charm.land/lipgloss/v2 v2.0.6
+	github.com/aclemen1/tuikit v0.7.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/teambition/rrule-go v1.8.2
 	github.com/yuin/goldmark v1.8.6
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/aclemen1/tuikit v0.2.0 // indirect
 	github.com/alecthomas/chroma/v2 v2.14.0 // indirect
 	github.com/atotto/clipboard v0.1.4 // indirect
 	github.com/aymerick/douceur v0.2.0 // indirect

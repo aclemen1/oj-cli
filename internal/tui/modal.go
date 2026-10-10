@@ -148,13 +148,13 @@ var ownPkg = reflect.TypeOf(watchMsg{}).PkgPath()
 // loadPeople reads the people of every sphere in the background.
 func (m *model) loadPeople() tea.Cmd {
 	stores := m.stores
-	return func() tea.Msg {
+	return m.wrap(m.tr("lire l'annuaire", "read the people"), func() tea.Msg {
 		var all []store.Person
 		for _, st := range stores {
 			all = append(all, st.People()...)
 		}
 		return peopleMsg{all}
-	}
+	})
 }
 
 // name is the label of a stored person (contact:JMR → Jean-Moïse Rochat), or the value as it is.

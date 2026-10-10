@@ -435,6 +435,7 @@ view, except in a text field, where it is typed.
 | `tab`, `J K` | show or hide the item pane; scroll it |
 | `1 2 3` | meetings, actions, every sitting |
 | `r`, `?`, `q` | reload; help; quit |
+| `!` | background jobs (tuikit Busy): store changes, renderings, refs, cited, people; a failure stays red in the header until the list is opened |
 
 | Keys | Agenda | Live | Actions |
 |---|---|---|---|

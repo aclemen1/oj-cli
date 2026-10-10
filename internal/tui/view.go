@@ -51,6 +51,9 @@ func (m *model) render() string {
 	if m.newBin {
 		head += " " + sWarn.Render(m.tr("● nouvelle version", "● new version"))
 	}
+	if b := m.busy.View(); b != "" {
+		head += "  " + b
+	}
 	var body string
 	switch {
 	case panel == nil:
@@ -134,6 +137,9 @@ func (m *model) renderMain() ([]string, string) {
 			"c", "action", "z", "defer", "H", "hold", "J/K", "scroll pane", "esc", "agenda")
 	case vActions:
 		lines, help = m.renderActions(), helpLine(m.filterPairs("space", "done/open", "e", "done", "enter", "item", "o", "open ref", "f", "show done", "/", "filter", "esc", "back")...)
+	}
+	if m.busy.Unread() > 0 {
+		help = helpLine(tuikit.BusyKey, m.tr("travaux", "jobs")) + sMuted.Render(" · ") + help
 	}
 	foot := help
 	switch {
